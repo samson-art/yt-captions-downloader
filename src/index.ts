@@ -3,11 +3,7 @@ import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import { parseSubtitles, detectSubtitleFormat } from './youtube';
-import {
-  GetSubtitlesRequest,
-  GetSubtitlesRequestSchema,
-  validateAndDownloadSubtitles,
-} from './validation';
+import { GetSubtitlesRequest, validateAndDownloadSubtitles } from './validation';
 
 const fastify = Fastify({
   logger: true,
@@ -25,100 +21,75 @@ fastify.register(rateLimit, {
 });
 
 // Main endpoint
-fastify.post(
-  '/api/subtitles',
-  {
-    schema: {
-      body: GetSubtitlesRequestSchema,
-    },
-  },
-  async (request, reply) => {
+fastify.post('/subtitles', async (request, reply) => {
+  try {
+    const body = request.body as GetSubtitlesRequest;
+
+    const result = await validateAndDownloadSubtitles(body, reply, fastify.log);
+    if (!result) {
+      return; // Response already sent from validateAndDownloadSubtitles
+    }
+
+    const { videoId, type, lang, subtitlesContent } = result;
+
+    // Parse and clean subtitles
+    let plainText: string;
     try {
-      const result = await validateAndDownloadSubtitles(
-        request.body as GetSubtitlesRequest,
-        reply,
-        fastify.log
-      );
-      if (!result) {
-        return; // Response already sent from validateAndDownloadSubtitles
-      }
-
-      const { videoId, type, lang, subtitlesContent } = result;
-
-      // Parse and clean subtitles
-      let plainText: string;
-      try {
-        plainText = parseSubtitles(subtitlesContent, fastify.log);
-      } catch (error) {
-        fastify.log.error(error);
-        return reply.code(500).send({
-          error: 'Parsing error',
-          message: error instanceof Error ? error.message : 'Failed to parse subtitles',
-        });
-      }
-
-      return reply.send({
-        videoId,
-        type,
-        lang,
-        text: plainText,
-        length: plainText.length,
-      });
+      plainText = parseSubtitles(subtitlesContent, fastify.log);
     } catch (error) {
       fastify.log.error(error);
       return reply.code(500).send({
-        error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Unknown error occurred',
+        error: 'Parsing error',
+        message: error instanceof Error ? error.message : 'Failed to parse subtitles',
       });
     }
+
+    return reply.send({
+      videoId,
+      type,
+      lang,
+      text: plainText,
+      length: plainText.length,
+    });
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error occurred',
+    });
   }
-);
+});
 
 // Endpoint for getting raw subtitles without cleaning
-fastify.post(
-  '/api/subtitles/raw',
-  {
-    schema: {
-      body: GetSubtitlesRequestSchema,
-    },
-  },
-  async (request, reply) => {
-    try {
-      const result = await validateAndDownloadSubtitles(
-        request.body as GetSubtitlesRequest,
-        reply,
-        fastify.log
-      );
-      if (!result) {
-        return; // Response already sent from validateAndDownloadSubtitles
-      }
+fastify.post('/subtitles/raw', async (request, reply) => {
+  try {
+    const body = request.body as GetSubtitlesRequest;
 
-      const { videoId, type, lang, subtitlesContent } = result;
-
-      // Detect subtitle format
-      const format = detectSubtitleFormat(subtitlesContent);
-
-      return reply.send({
-        videoId,
-        type,
-        lang,
-        format,
-        content: subtitlesContent,
-        length: subtitlesContent.length,
-      });
-    } catch (error) {
-      fastify.log.error(error);
-      return reply.code(500).send({
-        error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Unknown error occurred',
-      });
+    const result = await validateAndDownloadSubtitles(body, reply, fastify.log);
+    if (!result) {
+      return; // Response already sent from validateAndDownloadSubtitles
     }
-  }
-);
 
-// Health check endpoint
-fastify.get('/health', async (request, reply) => {
-  return reply.send({ status: 'ok' });
+    const { videoId, type, lang, subtitlesContent } = result;
+
+    // Detect subtitle format
+    const format = detectSubtitleFormat(subtitlesContent);
+
+    return reply.send({
+      videoId,
+      type,
+      lang,
+      format,
+      content: subtitlesContent,
+      length: subtitlesContent.length,
+    });
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error occurred',
+    });
+  }
 });
 
 const start = async () => {

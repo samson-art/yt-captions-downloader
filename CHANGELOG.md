@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-01-29
+
+### Added
+
+- Docker Compose configuration for easier container orchestration and deployment
+- Cookie support for accessing age-restricted or region-locked YouTube videos
+- `COOKIES_FILE_PATH` environment variable for persistent cookie file management
+- `@fastify/multipart` dependency for handling file uploads in cookie requests
+- Comprehensive cookie handling with proper sanitization and temporary file management
+
+### Changed
+
+- Refactored API routes in `src/index.ts` for improved code organization
+- Updated README with detailed cookie usage examples and new environment variables
+- Simplified validation logic by removing redundant cookie validation code
+- Enhanced subtitle download function to support optional cookie parameters
+
+### Removed
+
+- Health check endpoint from Dockerfile (moved to application-level routing)
+
 ## [0.1.0] - 2025-12-27
 
 ### Added

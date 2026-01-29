@@ -28,6 +28,15 @@ The Docker image includes all necessary dependencies: Node.js and yt-dlp.
 
 The server runs on port 3000 by default (or the port specified in the `PORT` environment variable).
 
+#### Pull from Docker Hub
+
+You can run the image without building locally (replace `samson-art` with your Docker Hub username if you use your own image):
+
+```bash
+docker pull samson-art/yt-captions-downloader:latest
+docker run -p 3000:3000 samson-art/yt-captions-downloader:latest
+```
+
 #### Build the image
 
 ```bash
@@ -51,6 +60,8 @@ docker run -p 8080:8080 -e PORT=8080 yt-captions-downloader
 - `PORT` - Server port (default: `3000`)
 - `HOST` - Server host (default: `0.0.0.0`)
 - `YT_DLP_TIMEOUT` - Timeout for yt-dlp command in milliseconds (default: `60000` - 60 seconds)
+- `YT_DLP_JS_RUNTIMES` - JS runtime(s) for yt-dlp extraction (e.g., `node` or `node:/usr/bin/node`)
+- `COOKIES_FILE_PATH` - Path to `cookies.txt` in Netscape format (optional, for age-restricted/sign-in)
 - `RATE_LIMIT_MAX` - Maximum number of requests per time window (default: `100`)
 - `RATE_LIMIT_TIME_WINDOW` - Time window for rate limiting (default: `1 minute`)
 - `SHUTDOWN_TIMEOUT` - Graceful shutdown timeout in milliseconds (default: `10000` - 10 seconds)
@@ -59,6 +70,18 @@ docker run -p 8080:8080 -e PORT=8080 yt-captions-downloader
 
 ```bash
 docker run -p 3000:3000 -e YT_DLP_TIMEOUT=120000 yt-captions-downloader
+```
+
+### Troubleshooting: age-restricted / sign-in required
+
+If yt-dlp is blocked by an age gate or sign-in requirement, requests can return `404 Subtitles not found`.
+Provide authenticated cookies via `COOKIES_FILE_PATH` and mount the file into the container:
+
+```bash
+docker run -p 3000:3000 \
+  -e COOKIES_FILE_PATH=/cookies/cookies.txt \
+  -v /path/to/cookies.txt:/cookies/cookies.txt:ro \
+  yt-captions-downloader
 ```
 
 #### Run in background
@@ -82,7 +105,7 @@ docker rm yt-captions
 
 ## API Documentation
 
-### POST /api/subtitles
+### POST /subtitles
 
 Retrieve cleaned subtitles (plain text without timestamps) from a YouTube video.
 
@@ -91,8 +114,7 @@ Retrieve cleaned subtitles (plain text without timestamps) from a YouTube video.
 {
   "url": "https://www.youtube.com/watch?v=VIDEO_ID",
   "type": "auto",
-  "lang": "en",
-  "cookies": "SID=...; HSID=..."
+  "lang": "en"
 }
 ```
 
@@ -100,7 +122,6 @@ Retrieve cleaned subtitles (plain text without timestamps) from a YouTube video.
 - `url` (required) - YouTube video URL
 - `type` (optional, default: `"auto"`) - Subtitle type: `"official"` (official subtitles) or `"auto"` (auto-generated subtitles)
 - `lang` (optional, default: `"en"`) - Subtitle language code (e.g., `"en"`, `"ru"`, `"es"`, `"fr"`)
-- `cookies` (optional) - Cookie header string (e.g., `"SID=...; HSID=..."`), used to create a temp `cookies.txt` for yt-dlp
 
 **Response (Success):**
 ```json
@@ -125,33 +146,26 @@ Retrieve cleaned subtitles (plain text without timestamps) from a YouTube video.
 
 Auto-generated subtitles in English (default):
 ```bash
-curl -X POST http://localhost:3000/api/subtitles \
+curl -X POST http://localhost:3000/subtitles \
   -H "Content-Type: application/json" \
   -d '{"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}'
 ```
 
 Official subtitles in Russian:
 ```bash
-curl -X POST http://localhost:3000/api/subtitles \
+curl -X POST http://localhost:3000/subtitles \
   -H "Content-Type: application/json" \
   -d '{"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "type": "official", "lang": "ru"}'
 ```
 
-Auto-generated subtitles with cookies:
-```bash
-curl -X POST http://localhost:3000/api/subtitles \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "cookies": "SID=...; HSID=..."}'
-```
-
 Auto-generated subtitles in Spanish:
 ```bash
-curl -X POST http://localhost:3000/api/subtitles \
+curl -X POST http://localhost:3000/subtitles \
   -H "Content-Type: application/json" \
   -d '{"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "type": "auto", "lang": "es"}'
 ```
 
-### POST /api/subtitles/raw
+### POST /subtitles/raw
 
 Retrieve raw subtitles from a YouTube video without cleaning (includes timestamps and formatting).
 
@@ -160,8 +174,7 @@ Retrieve raw subtitles from a YouTube video without cleaning (includes timestamp
 {
   "url": "https://www.youtube.com/watch?v=VIDEO_ID",
   "type": "auto",
-  "lang": "en",
-  "cookies": "SID=...; HSID=..."
+  "lang": "en"
 }
 ```
 
@@ -169,7 +182,6 @@ Retrieve raw subtitles from a YouTube video without cleaning (includes timestamp
 - `url` (required) - YouTube video URL
 - `type` (optional, default: `"auto"`) - Subtitle type: `"official"` or `"auto"`
 - `lang` (optional, default: `"en"`) - Subtitle language code
-- `cookies` (optional) - Cookie header string (e.g., `"SID=...; HSID=..."`), used to create a temp `cookies.txt` for yt-dlp
 
 **Response (Success):**
 ```json
@@ -203,27 +215,16 @@ Retrieve raw subtitles from a YouTube video without cleaning (includes timestamp
 
 Get raw auto-generated subtitles in English:
 ```bash
-curl -X POST http://localhost:3000/api/subtitles/raw \
+curl -X POST http://localhost:3000/subtitles/raw \
   -H "Content-Type: application/json" \
   -d '{"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}'
 ```
 
 Get raw official subtitles in Russian:
 ```bash
-curl -X POST http://localhost:3000/api/subtitles/raw \
+curl -X POST http://localhost:3000/subtitles/raw \
   -H "Content-Type: application/json" \
   -d '{"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "type": "official", "lang": "ru"}'
-```
-
-### GET /health
-
-Health check endpoint to verify the server is running.
-
-**Response:**
-```json
-{
-  "status": "ok"
-}
 ```
 
 ## How It Works
@@ -237,7 +238,7 @@ Health check endpoint to verify the server is running.
    - Subtitle numbers
    - HTML tags
    - Formatting
-5. Returns clean plain text (for `/api/subtitles`) or raw content (for `/api/subtitles/raw`)
+5. Returns clean plain text (for `/subtitles`) or raw content (for `/subtitles/raw`)
 
 ## Development
 

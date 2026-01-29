@@ -6,4 +6,4 @@ dist/
 *.srt
 *.vtt
 temp/
-
+coverage/

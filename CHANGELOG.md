@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-02-03
+
+### Added
+
+- MCP server (Cursor) over stdio (`src/mcp.ts`) with tools:
+  - `get_transcript` (plain text transcript, paginated)
+  - `get_raw_subtitles` (raw SRT/VTT, paginated)
+  - `get_available_subtitles` (official vs auto language codes)
+  - `get_video_info` (basic metadata via yt-dlp)
+- Docker image for MCP server (`Dockerfile.mcp`)
+- `docker-compose.example.yml` with an additional MCP service example
+- `REPOSITORY_OVERVIEW.md` project overview document
+
+### Changed
+
+- Switched project to ESM:
+  - `package.json` now uses `"type": "module"`
+  - TypeScript config updated to `module/moduleResolution: nodenext`
+  - Local imports updated to use `.js` extensions for NodeNext compatibility
+- Added MCP-related scripts:
+  - `start:mcp`, `dev:mcp`
+- yt-dlp integration extended with:
+  - `fetchVideoInfo`
+  - `fetchAvailableSubtitles`
+  - shared handling for yt-dlp env flags (`--cookies`, `--js-runtimes`, `--remote-components`)
+- Jest config renamed to `jest.config.cjs`
+
+### Security
+
+- Added `cookies.txt` to `.gitignore` to avoid accidental commits of sensitive cookies
+
 ## [0.2.0] - 2026-01-29
 
 ### Added

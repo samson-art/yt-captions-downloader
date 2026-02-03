@@ -1,4 +1,4 @@
-import { isValidYouTubeUrl, sanitizeVideoId, sanitizeLang } from './validation';
+import { isValidYouTubeUrl, sanitizeVideoId, sanitizeLang } from './validation.js';
 
 describe('validation', () => {
   describe('isValidYouTubeUrl', () => {

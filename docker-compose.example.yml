@@ -16,3 +16,20 @@ services:
     volumes:
       - "./cookies.txt:/cookies.txt:ro"
     restart: unless-stopped
+
+  yt-captions-mcp:
+    image: artsamsonov/yt-captions-mcp:latest
+    container_name: yt-captions-mcp
+    command: ["npm", "run", "start:mcp"]
+    stdin_open: true
+    tty: true
+    environment:
+      PORT: "3001"
+      HOST: "0.0.0.0"
+      YT_DLP_TIMEOUT: "60000"
+      YT_DLP_JS_RUNTIMES: "node"
+      COOKIES_FILE_PATH: "/cookies.txt"
+    ports:
+      - "3001:3001"
+    volumes:
+      - "./cookies.txt:/cookies.txt:ro"

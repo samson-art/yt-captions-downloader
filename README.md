@@ -1,6 +1,40 @@
-# YouTube Captions Downloader API
+# YouTube Captions MCP Server (stdio)
 
-A RESTful API service for extracting subtitles from YouTube videos. Supports both official and auto-generated subtitles in multiple languages.
+An **MCP server over stdio** that can fetch YouTube transcripts/subtitles via `yt-dlp`, with pagination for large responses. It works with **Cursor and other MCP hosts** that support stdio transport. This repo also includes an optional REST API (Fastify), but the primary focus is MCP.
+
+## MCP quick start (recommended)
+
+### Docker Hub image
+
+- Image: `artsamsonov/yt-captions-mcp:latest`
+
+Run locally (stdio mode):
+
+```bash
+docker run --rm -i artsamsonov/yt-captions-mcp:latest
+```
+
+### Cursor MCP configuration (Docker)
+
+Add to Cursor MCP settings (or create `.cursor/mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "yt-captions": {
+      "command": "docker",
+      "args": ["run", "--rm", "-i", "artsamsonov/yt-captions-mcp:latest"]
+    }
+  }
+}
+```
+
+### Available MCP tools
+
+- `get_transcript` — cleaned plain text subtitles (paginated)
+- `get_raw_subtitles` — raw SRT/VTT (paginated)
+- `get_available_subtitles` — list official vs auto language codes
+- `get_video_info` — basic metadata from `yt-dlp`
 
 ## Features
 
@@ -20,22 +54,9 @@ A RESTful API service for extracting subtitles from YouTube videos. Supports bot
 - **Node.js** >= 20.0.0 (for local development)
 - **yt-dlp** (included in Docker image)
 
-## Quick Start
+## REST API (optional)
 
-### Using Docker (Recommended)
-
-The Docker image includes all necessary dependencies: Node.js and yt-dlp.
-
-The server runs on port 3000 by default (or the port specified in the `PORT` environment variable).
-
-#### Pull from Docker Hub
-
-You can run the image without building locally (replace `samson-art` with your Docker Hub username if you use your own image):
-
-```bash
-docker pull samson-art/yt-captions-downloader:latest
-docker run -p 3000:3000 samson-art/yt-captions-downloader:latest
-```
+The repository also ships an HTTP API (Fastify). If you want to run the REST API in Docker, build it locally from `Dockerfile`:
 
 #### Build the image
 
@@ -227,6 +248,78 @@ curl -X POST http://localhost:3000/subtitles/raw \
   -d '{"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "type": "official", "lang": "ru"}'
 ```
 
+## MCP Server (stdio)
+
+This project also ships an MCP server over stdio. It reuses the same `yt-dlp` based extraction and can return full transcript text or raw subtitles. Cursor configuration examples are provided below, but it should work with any MCP host that supports stdio.
+
+### Available Tools
+
+- `get_transcript` - cleaned plain text subtitles (supports pagination)
+- `get_raw_subtitles` - raw SRT/VTT (supports pagination)
+- `get_available_subtitles` - list official vs auto language codes
+- `get_video_info` - basic metadata from `yt-dlp`
+
+### Pagination
+
+Tools that return large text accept:
+- `response_limit` (default `50000`, min `1000`, max `200000`)
+- `next_cursor` (string offset from a previous response)
+
+If the response is truncated, the tool returns `next_cursor` so you can fetch the next chunk.
+
+### Local setup
+
+```bash
+npm install
+npm run build
+npm run start:mcp
+```
+
+### Cursor MCP configuration (local)
+
+Create `.cursor/mcp.json` (or add to your global Cursor MCP settings):
+
+```json
+{
+  "mcpServers": {
+    "yt-captions": {
+      "command": "node",
+      "args": ["dist/mcp.js"]
+    }
+  }
+}
+```
+
+### Docker setup
+
+Build and run the MCP server in a container (stdio mode):
+
+```bash
+docker build -f Dockerfile.mcp -t yt-captions-mcp .
+docker run --rm -i yt-captions-mcp
+```
+
+Cursor MCP config for Docker:
+
+```json
+{
+  "mcpServers": {
+    "yt-captions": {
+      "command": "docker",
+      "args": ["run", "--rm", "-i", "artsamsonov/yt-captions-mcp:latest"]
+    }
+  }
+}
+```
+
+### Related MCP implementations
+
+This MCP server borrows the best ideas from existing implementations:
+
+- `jkawamoto/mcp-youtube-transcript`: Docker image + pagination
+- `kimtaeyoon83/mcp-server-youtube-transcript`: timestamps + language fallback
+- `anaisbetts/mcp-youtube` and `@bingyin/youtube-mcp`: `yt-dlp` based extraction
+
 ## How It Works
 
 1. The API receives a YouTube URL and parameters (subtitle type and language) from the client
@@ -253,6 +346,8 @@ curl -X POST http://localhost:3000/subtitles/raw \
 - `npm run build` - Build the TypeScript project
 - `npm start` - Run the compiled application
 - `npm run dev` - Run with hot reload using ts-node-dev
+- `npm run start:mcp` - Run the MCP server (stdio)
+- `npm run dev:mcp` - Run the MCP server with hot reload
 - `npm test` - Run tests
 - `npm run test:watch` - Run tests in watch mode
 - `npm run test:coverage` - Run tests with coverage report
@@ -267,6 +362,7 @@ curl -X POST http://localhost:3000/subtitles/raw \
 ```
 ├── src/
 │   ├── index.ts          # Main application entry point
+│   ├── mcp.ts            # MCP server entry point
 │   ├── validation.ts     # Request validation logic
 │   └── youtube.ts        # YouTube subtitle downloading and parsing
 ├── dist/                 # Compiled JavaScript (generated)

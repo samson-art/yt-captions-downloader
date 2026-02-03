@@ -7,6 +7,45 @@ import type { FastifyBaseLogger } from 'fastify';
 
 const execFileAsync = promisify(execFile);
 
+type YtDlpVideoInfo = {
+  id?: string;
+  title?: string;
+  uploader?: string;
+  uploader_id?: string;
+  channel?: string;
+  channel_id?: string;
+  channel_url?: string;
+  duration?: number;
+  description?: string;
+  upload_date?: string;
+  webpage_url?: string;
+  view_count?: number;
+  like_count?: number;
+  subtitles?: Record<string, Array<{ ext?: string; url?: string }>>;
+  automatic_captions?: Record<string, Array<{ ext?: string; url?: string }>>;
+};
+
+export type VideoInfo = {
+  id: string | null;
+  title: string | null;
+  uploader: string | null;
+  uploaderId: string | null;
+  channel: string | null;
+  channelId: string | null;
+  channelUrl: string | null;
+  duration: number | null;
+  description: string | null;
+  uploadDate: string | null;
+  webpageUrl: string | null;
+  viewCount: number | null;
+  likeCount: number | null;
+};
+
+export type AvailableSubtitles = {
+  official: string[];
+  auto: string[];
+};
+
 /**
  * Extracts video ID from YouTube URL
  */
@@ -43,9 +82,7 @@ export async function downloadSubtitles(
   const tempDir = tmpdir();
   const timestamp = Date.now();
   const outputPath = join(tempDir, `subtitles_${videoId}_${timestamp}`);
-  const jsRuntimes = process.env.YT_DLP_JS_RUNTIMES?.trim();
-  const remoteComponents = process.env.YT_DLP_REMOTE_COMPONENTS?.trim() || 'ejs:github';
-  const cookiesFilePathFromEnv = process.env.COOKIES_FILE_PATH?.trim();
+  const { jsRuntimes, remoteComponents, cookiesFilePathFromEnv } = getYtDlpEnv();
 
   try {
     // Build command arguments depending on subtitle type
@@ -63,16 +100,7 @@ export async function downloadSubtitles(
       videoUrl, // videoUrl is built from sanitized videoId
     ];
 
-    if (cookiesFilePathFromEnv) {
-      args.splice(-1, 0, '--cookies', cookiesFilePathFromEnv);
-    }
-
-    if (jsRuntimes) {
-      args.splice(-1, 0, '--js-runtimes', jsRuntimes);
-    }
-    if (remoteComponents) {
-      args.splice(-1, 0, '--remote-components', remoteComponents);
-    }
+    appendYtDlpEnvArgs(args, { jsRuntimes, remoteComponents, cookiesFilePathFromEnv });
 
     logger?.info(
       { videoId, type, lang, hasCookies: Boolean(cookiesFilePathFromEnv) },
@@ -138,6 +166,53 @@ export async function downloadSubtitles(
     logger?.error({ error, videoId }, `Error downloading subtitles for ${videoId}`);
     return null;
   }
+}
+
+export async function fetchVideoInfo(
+  videoId: string,
+  logger?: FastifyBaseLogger
+): Promise<VideoInfo | null> {
+  const data = await fetchYtDlpJson(videoId, logger);
+  if (!data) {
+    return null;
+  }
+
+  return {
+    id: data.id ?? null,
+    title: data.title ?? null,
+    uploader: data.uploader ?? null,
+    uploaderId: data.uploader_id ?? null,
+    channel: data.channel ?? null,
+    channelId: data.channel_id ?? null,
+    channelUrl: data.channel_url ?? null,
+    duration: typeof data.duration === 'number' ? data.duration : null,
+    description: data.description ?? null,
+    uploadDate: data.upload_date ?? null,
+    webpageUrl: data.webpage_url ?? null,
+    viewCount: typeof data.view_count === 'number' ? data.view_count : null,
+    likeCount: typeof data.like_count === 'number' ? data.like_count : null,
+  };
+}
+
+export async function fetchAvailableSubtitles(
+  videoId: string,
+  logger?: FastifyBaseLogger
+): Promise<AvailableSubtitles | null> {
+  const data = await fetchYtDlpJson(videoId, logger);
+  if (!data) {
+    return null;
+  }
+
+  const official = data.subtitles ? Object.keys(data.subtitles) : [];
+  const auto = data.automatic_captions ? Object.keys(data.automatic_captions) : [];
+
+  const sortedOfficial = [...official].sort((a, b) => a.localeCompare(b));
+  const sortedAuto = [...auto].sort((a, b) => a.localeCompare(b));
+
+  return {
+    official: sortedOfficial,
+    auto: sortedAuto,
+  };
 }
 
 /**
@@ -218,6 +293,66 @@ async function findSubtitleFile(
     return null;
   } catch (error) {
     logger?.error({ error, basePath }, 'Error finding subtitle file');
+    return null;
+  }
+}
+
+function getYtDlpEnv() {
+  return {
+    jsRuntimes: process.env.YT_DLP_JS_RUNTIMES?.trim(),
+    remoteComponents: process.env.YT_DLP_REMOTE_COMPONENTS?.trim() || 'ejs:github',
+    cookiesFilePathFromEnv: process.env.COOKIES_FILE_PATH?.trim(),
+  };
+}
+
+function appendYtDlpEnvArgs(
+  args: string[],
+  env: { jsRuntimes?: string; remoteComponents?: string; cookiesFilePathFromEnv?: string }
+) {
+  if (env.cookiesFilePathFromEnv) {
+    args.splice(-1, 0, '--cookies', env.cookiesFilePathFromEnv);
+  }
+
+  if (env.jsRuntimes) {
+    args.splice(-1, 0, '--js-runtimes', env.jsRuntimes);
+  }
+
+  if (env.remoteComponents) {
+    args.splice(-1, 0, '--remote-components', env.remoteComponents);
+  }
+}
+
+async function fetchYtDlpJson(
+  videoId: string,
+  logger?: FastifyBaseLogger
+): Promise<YtDlpVideoInfo | null> {
+  const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+  const { jsRuntimes, remoteComponents, cookiesFilePathFromEnv } = getYtDlpEnv();
+
+  const args = ['--dump-single-json', '--skip-download', videoUrl];
+  appendYtDlpEnvArgs(args, { jsRuntimes, remoteComponents, cookiesFilePathFromEnv });
+
+  try {
+    const timeout = process.env.YT_DLP_TIMEOUT ? Number.parseInt(process.env.YT_DLP_TIMEOUT, 10) : 60000;
+    const { stdout, stderr } = await execFileAsync('yt-dlp', args, {
+      maxBuffer: 10 * 1024 * 1024,
+      timeout,
+    });
+    if (stderr) {
+      logger?.debug({ stderr }, 'yt-dlp stderr');
+    }
+
+    const trimmed = stdout.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    return JSON.parse(trimmed) as YtDlpVideoInfo;
+  } catch (error: any) {
+    logger?.error(
+      { error: error.message, videoId, stdout: error.stdout, stderr: error.stderr },
+      'Error fetching video info via yt-dlp'
+    );
     return null;
   }
 }

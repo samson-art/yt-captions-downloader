@@ -1,4 +1,4 @@
-import { extractVideoId, detectSubtitleFormat, parseSubtitles } from './youtube';
+import { extractVideoId, detectSubtitleFormat, parseSubtitles } from './youtube.js';
 
 describe('youtube', () => {
   describe('extractVideoId', () => {

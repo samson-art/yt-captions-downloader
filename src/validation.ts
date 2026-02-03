@@ -1,6 +1,6 @@
 import { FastifyReply, FastifyBaseLogger } from 'fastify';
 import { Type, Static } from '@sinclair/typebox';
-import { extractVideoId, downloadSubtitles } from './youtube';
+import { extractVideoId, downloadSubtitles } from './youtube.js';
 
 // TypeBox schema for subtitle request
 export const GetSubtitlesRequestSchema = Type.Object({

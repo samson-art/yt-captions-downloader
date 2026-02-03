@@ -2,8 +2,8 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
-import { parseSubtitles, detectSubtitleFormat } from './youtube';
-import { GetSubtitlesRequest, validateAndDownloadSubtitles } from './validation';
+import { parseSubtitles, detectSubtitleFormat } from './youtube.js';
+import { GetSubtitlesRequest, validateAndDownloadSubtitles } from './validation.js';
 
 const fastify = Fastify({
   logger: true,

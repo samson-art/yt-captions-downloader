@@ -1,6 +1,6 @@
-# YouTube Captions MCP Server (stdio)
+# YouTube Captions MCP Server (stdio + HTTP)
 
-An **MCP server over stdio** that can fetch YouTube transcripts/subtitles via `yt-dlp`, with pagination for large responses. It works with **Cursor and other MCP hosts** that support stdio transport. This repo also includes an optional REST API (Fastify), but the primary focus is MCP.
+An **MCP server over stdio** (for local usage) and **HTTP/SSE** (for remote usage) that can fetch YouTube transcripts/subtitles via `yt-dlp`, with pagination for large responses. It works with **Cursor and other MCP hosts** that support stdio or HTTP transport. This repo also includes an optional REST API (Fastify), but the primary focus is MCP.
 
 ## MCP quick start (recommended)
 
@@ -13,6 +13,28 @@ Run locally (stdio mode):
 ```bash
 docker run --rm -i artsamsonov/yt-captions-mcp:latest
 ```
+
+### Remote MCP over HTTP (VPS + Tailscale)
+
+Run the HTTP/SSE MCP server on your VPS (default port `4200`) using docker-compose:
+
+```bash
+cp docker-compose.example.yml docker-compose.yml
+docker compose up -d yt-captions-mcp
+```
+
+**Claude Code (HTTP / streamable HTTP):**
+
+```bash
+claude mcp add --transport http yt-captions http://<tailscale-host>:4200/mcp
+```
+
+**Cursor (SSE):**
+
+- Add a new MCP server of type **SSE** with URL:
+  `http://<tailscale-host>:4200/sse`
+
+If you set `MCP_AUTH_TOKEN`, add `Authorization: Bearer <token>` in the client headers.
 
 ### Cursor MCP configuration (Docker)
 
@@ -275,6 +297,13 @@ npm run build
 npm run start:mcp
 ```
 
+### HTTP setup (remote)
+
+```bash
+npm run build
+MCP_PORT=4200 MCP_HOST=0.0.0.0 npm run start:mcp:http
+```
+
 ### Cursor MCP configuration (local)
 
 Create `.cursor/mcp.json` (or add to your global Cursor MCP settings):
@@ -297,6 +326,13 @@ Build and run the MCP server in a container (stdio mode):
 ```bash
 docker build -f Dockerfile.mcp -t yt-captions-mcp .
 docker run --rm -i yt-captions-mcp
+```
+
+Build and run the MCP server in a container (HTTP mode):
+
+```bash
+docker build -f Dockerfile.mcp -t yt-captions-mcp .
+docker run -p 4200:4200 -e MCP_PORT=4200 -e MCP_HOST=0.0.0.0 yt-captions-mcp npm run start:mcp:http
 ```
 
 Cursor MCP config for Docker:
@@ -347,6 +383,7 @@ This MCP server borrows the best ideas from existing implementations:
 - `npm start` - Run the compiled application
 - `npm run dev` - Run with hot reload using ts-node-dev
 - `npm run start:mcp` - Run the MCP server (stdio)
+- `npm run start:mcp:http` - Run the MCP server (HTTP/SSE)
 - `npm run dev:mcp` - Run the MCP server with hot reload
 - `npm test` - Run tests
 - `npm run test:watch` - Run tests in watch mode
@@ -362,7 +399,9 @@ This MCP server borrows the best ideas from existing implementations:
 ```
 ├── src/
 │   ├── index.ts          # Main application entry point
-│   ├── mcp.ts            # MCP server entry point
+│   ├── mcp.ts            # MCP server entry point (stdio)
+│   ├── mcp-core.ts       # MCP tools registration (shared)
+│   ├── mcp-http.ts       # MCP server entry point (HTTP/SSE)
 │   ├── validation.ts     # Request validation logic
 │   └── youtube.ts        # YouTube subtitle downloading and parsing
 ├── dist/                 # Compiled JavaScript (generated)

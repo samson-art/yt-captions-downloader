@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-02-03
+
+### Added
+
+- MCP server over HTTP transports:
+  - Streamable HTTP endpoint at `/mcp` (`src/mcp-http.ts`)
+  - SSE endpoint at `/sse` with message handler at `/message` (`src/mcp-http.ts`)
+- Optional auth for HTTP MCP via `MCP_AUTH_TOKEN` (Bearer token)
+- Optional SSE allowlists via `MCP_ALLOWED_HOSTS` / `MCP_ALLOWED_ORIGINS`
+- Extracted reusable MCP server core into `src/mcp-core.ts`
+- New script: `start:mcp:http`
+
+### Changed
+
+- Updated `docker-compose.example.yml` MCP service to run HTTP mode and expose port `4200`
+- Updated `Dockerfile.mcp` to expose `4200` for HTTP mode
+- Streamlined `src/mcp.ts` to be stdio-only entrypoint
+- Bumped package version to `0.3.1`
+
 ## [0.3.0] - 2026-02-03
 
 ### Added

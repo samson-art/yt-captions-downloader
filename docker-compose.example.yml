@@ -20,16 +20,16 @@ services:
   yt-captions-mcp:
     image: artsamsonov/yt-captions-mcp:latest
     container_name: yt-captions-mcp
-    command: ["npm", "run", "start:mcp"]
+    command: ["npm", "run", "start:mcp:http"]
     stdin_open: true
     tty: true
     environment:
-      PORT: "3001"
-      HOST: "0.0.0.0"
+      MCP_PORT: "4200"
+      MCP_HOST: "0.0.0.0"
       YT_DLP_TIMEOUT: "60000"
       YT_DLP_JS_RUNTIMES: "node"
       COOKIES_FILE_PATH: "/cookies.txt"
     ports:
-      - "3001:3001"
+      - "4200:4200"
     volumes:
       - "./cookies.txt:/cookies.txt:ro"

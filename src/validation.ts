@@ -1,6 +1,6 @@
 import { FastifyReply, FastifyBaseLogger } from 'fastify';
 import { Type, Static } from '@sinclair/typebox';
-import { extractVideoId, downloadSubtitles } from './youtube.js';
+import { extractVideoId, downloadSubtitles, fetchAvailableSubtitles } from './youtube.js';
 
 // TypeBox schema for subtitle request
 export const GetSubtitlesRequestSchema = Type.Object({
@@ -26,6 +26,16 @@ export const GetSubtitlesRequestSchema = Type.Object({
 });
 
 export type GetSubtitlesRequest = Static<typeof GetSubtitlesRequestSchema>;
+
+// Schema for request to get available subtitles
+export const GetAvailableSubtitlesRequestSchema = Type.Object({
+  url: Type.String({
+    minLength: 1,
+    description: 'YouTube video URL',
+  }),
+});
+
+export type GetAvailableSubtitlesRequest = Static<typeof GetAvailableSubtitlesRequestSchema>;
 
 /**
  * Validates and sanitizes YouTube URL
@@ -182,4 +192,63 @@ export async function validateAndDownloadSubtitles(
   }
 
   return { videoId, type, lang: sanitizedLang, subtitlesContent };
+}
+
+/**
+ * Validates request and returns available subtitles for a video
+ * @param logger - Fastify logger instance for structured logging
+ * @returns object with available subtitles data or null in case of error
+ */
+export async function validateAndFetchAvailableSubtitles(
+  request: GetAvailableSubtitlesRequest,
+  reply: FastifyReply,
+  logger?: FastifyBaseLogger
+): Promise<{
+  videoId: string;
+  official: string[];
+  auto: string[];
+} | null> {
+  const { url } = request;
+
+  // Validate URL for valid YouTube URL
+  if (!isValidYouTubeUrl(url)) {
+    reply.code(400).send({
+      error: 'Invalid YouTube URL',
+      message: 'Please provide a valid YouTube video URL',
+    });
+    return null;
+  }
+
+  // Extract video ID
+  const extractedVideoId = extractVideoId(url);
+  if (!extractedVideoId) {
+    reply.code(400).send({
+      error: 'Invalid YouTube URL',
+      message: 'Could not extract video ID from the provided URL',
+    });
+    return null;
+  }
+
+  // Sanitize video ID to prevent injection attacks
+  const videoId = sanitizeVideoId(extractedVideoId);
+  if (!videoId) {
+    reply.code(400).send({
+      error: 'Invalid video ID',
+      message: 'Video ID contains invalid characters',
+    });
+    return null;
+  }
+
+  // Fetch available subtitles
+  const availableSubtitles = await fetchAvailableSubtitles(videoId, logger);
+
+  if (!availableSubtitles) {
+    reply.code(404).send({
+      error: 'Subtitles not found',
+      message: 'No available subtitles found for the provided video',
+    });
+    return null;
+  }
+
+  return { videoId, official: availableSubtitles.official, auto: availableSubtitles.auto };
 }

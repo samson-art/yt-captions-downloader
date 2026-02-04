@@ -1,4 +1,4 @@
-import { execFile } from 'child_process';
+import { execFile } from 'node:child_process';
 import { promisify } from 'util';
 import { readFile, unlink } from 'fs/promises';
 import { join } from 'path';
@@ -333,7 +333,9 @@ async function fetchYtDlpJson(
   appendYtDlpEnvArgs(args, { jsRuntimes, remoteComponents, cookiesFilePathFromEnv });
 
   try {
-    const timeout = process.env.YT_DLP_TIMEOUT ? Number.parseInt(process.env.YT_DLP_TIMEOUT, 10) : 60000;
+    const timeout = process.env.YT_DLP_TIMEOUT
+      ? Number.parseInt(process.env.YT_DLP_TIMEOUT, 10)
+      : 60000;
     const { stdout, stderr } = await execFileAsync('yt-dlp', args, {
       maxBuffer: 10 * 1024 * 1024,
       timeout,

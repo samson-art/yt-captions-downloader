@@ -23,15 +23,23 @@ RUN npm run build
 # ============================================
 FROM node:20-slim AS production
 
-# Устанавливаем системные зависимости для yt-dlp
+# Устанавливаем системные зависимости для yt-dlp и JS runtime
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
     curl \
+    unzip \
     && rm -rf /var/lib/apt/lists/*
 
-# Устанавливаем yt-dlp через pip
-RUN pip3 install --no-cache-dir --break-system-packages yt-dlp
+# Устанавливаем Deno (js runtime для yt-dlp)
+ENV DENO_INSTALL=/usr/local
+RUN curl -fsSL https://deno.land/x/install/install.sh | sh
+
+# Устанавливаем yt-dlp через pip (последняя стабильная версия)
+RUN pip3 install --no-cache-dir --break-system-packages -U yt-dlp
+
+# По умолчанию используем deno, затем node
+ENV YT_DLP_JS_RUNTIMES="deno,node"
 
 # Создаем рабочую директорию
 WORKDIR /app

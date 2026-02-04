@@ -3,7 +3,12 @@ import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import { parseSubtitles, detectSubtitleFormat } from './youtube.js';
-import { GetSubtitlesRequest, validateAndDownloadSubtitles } from './validation.js';
+import {
+  GetAvailableSubtitlesRequest,
+  GetSubtitlesRequest,
+  validateAndDownloadSubtitles,
+  validateAndFetchAvailableSubtitles,
+} from './validation.js';
 
 const fastify = Fastify({
   logger: true,
@@ -82,6 +87,32 @@ fastify.post('/subtitles/raw', async (request, reply) => {
       format,
       content: subtitlesContent,
       length: subtitlesContent.length,
+    });
+  } catch (error) {
+    fastify.log.error(error);
+    return reply.code(500).send({
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error occurred',
+    });
+  }
+});
+
+// Endpoint for getting available subtitles (official vs auto) for a video
+fastify.post('/subtitles/available', async (request, reply) => {
+  try {
+    const body = request.body as GetAvailableSubtitlesRequest;
+
+    const result = await validateAndFetchAvailableSubtitles(body, reply, fastify.log);
+    if (!result) {
+      return; // Response already sent from validateAndFetchAvailableSubtitles
+    }
+
+    const { videoId, official, auto } = result;
+
+    return reply.send({
+      videoId,
+      official,
+      auto,
     });
   } catch (error) {
     fastify.log.error(error);

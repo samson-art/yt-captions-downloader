@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-02-04
+
+### Added
+
+- New `/subtitles/available` REST endpoint that returns the video ID and sorted lists of official vs auto-generated subtitle language codes.
+- Validation helper `validateAndFetchAvailableSubtitles` for safely extracting and sanitizing YouTube video IDs before fetching available subtitles.
+- Unit test `fetchAvailableSubtitles.test.ts` covering `fetchAvailableSubtitles` behavior (official vs auto subtitles).
+- Documentation for using the MCP server as an n8n MCP client over streamable HTTP, including guidance on `N8N_PROXY_HOPS`.
+
+### Changed
+
+- Production `Dockerfile` now installs Deno as a JS runtime for `yt-dlp`, updates `yt-dlp` to the latest stable release, and configures `YT_DLP_JS_RUNTIMES="deno,node"`.
+- MCP core now imports Zod via `zod/v3` to improve JSON Schema compatibility with strict MCP clients (such as n8n).
+- Jest configuration adds a `moduleNameMapper` rule to map `.js` imports back to TypeScript sources under NodeNext/ESM.
+- Updated API documentation in `README` to cover the new `/subtitles/available` endpoint with request/response examples.
+- Updated `.gitignore` to also ignore `Makefile`.
+
 ## [0.3.1] - 2026-02-03
 
 ### Added

@@ -97,6 +97,12 @@ claude mcp add --transport http yt-captions http://<tailscale-host>:4200/mcp
 
 If you set `MCP_AUTH_TOKEN`, add `Authorization: Bearer <token>` in the client headers.
 
+**n8n MCP Client (streamable HTTP):**
+
+- Use the MCP Server URL `http://<host>:4200/mcp` (streamable HTTP transport).
+- If n8n runs behind a reverse proxy that sets `X-Forwarded-For`, set `N8N_PROXY_HOPS`
+  to the number of proxy hops (commonly `1`) to avoid `ERR_ERL_UNEXPECTED_X_FORWARDED_FOR`.
+
 ## MCP tools
 
 - `get_transcript`: cleaned plain text subtitles (paginated)
@@ -302,6 +308,50 @@ Get raw official subtitles in Russian:
 curl -X POST http://localhost:3000/subtitles/raw \
   -H "Content-Type: application/json" \
   -d '{"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "type": "official", "lang": "ru"}'
+```
+
+### POST /subtitles/available
+
+Retrieve the list of available subtitle languages for a YouTube video, split into official and auto-generated subtitles.
+
+**Request Body:**
+```json
+{
+  "url": "https://www.youtube.com/watch?v=VIDEO_ID"
+}
+```
+
+**Parameters:**
+- `url` (required) - YouTube video URL
+
+**Response (Success):**
+```json
+{
+  "videoId": "VIDEO_ID",
+  "official": ["en", "ru"],
+  "auto": ["en"]
+}
+```
+
+**Response Fields:**
+- `videoId` - YouTube video ID
+- `official` - Sorted list of language codes with official subtitles
+- `auto` - Sorted list of language codes with auto-generated subtitles
+
+**Response (Error):**
+```json
+{
+  "error": "Error type",
+  "message": "Error message"
+}
+```
+
+**Example Request:**
+
+```bash
+curl -X POST http://localhost:3000/subtitles/available \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}'
 ```
 
 ## MCP Server (stdio)

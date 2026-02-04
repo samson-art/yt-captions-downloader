@@ -9,3 +9,4 @@ temp/
 coverage/
 docker-hub-description.md
 cookies.txt
+Makefile

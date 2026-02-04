@@ -1,5 +1,9 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { z } from 'zod';
+// IMPORTANT: use Zod v3 schemas for MCP JSON Schema compatibility.
+// Some MCP clients (e.g. n8n) are strict about JSON Schema shapes and can fail
+// on Zod v4 JSON schema output ($ref-heavy / missing "type" in some branches).
+// The MCP SDK already supports Zod v3 via `zod/v3` + `zod-to-json-schema`.
+import { z } from 'zod/v3';
 import {
   detectSubtitleFormat,
   downloadSubtitles,

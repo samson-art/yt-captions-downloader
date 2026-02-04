@@ -1,6 +1,9 @@
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
 import { randomUUID } from 'node:crypto';
-import { SSEServerTransport, type SSEServerTransportOptions } from '@modelcontextprotocol/sdk/server/sse.js';
+import {
+  SSEServerTransport,
+  type SSEServerTransportOptions,
+} from '@modelcontextprotocol/sdk/server/sse.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { createMcpServer } from './mcp-core.js';
 

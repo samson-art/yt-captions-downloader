@@ -98,6 +98,8 @@ claude mcp add --transport http yt-captions http://<tailscale-host>:4200/mcp
 
 If you set `MCP_AUTH_TOKEN`, add `Authorization: Bearer <token>` in the client headers.
 
+For more MCP configuration examples, see [`docs/quick-start.mcp.md`](docs/quick-start.mcp.md).
+
 **n8n MCP Client (streamable HTTP):**
 
 - Use the MCP Server URL `http://<host>:4200/mcp` (streamable HTTP transport).
@@ -226,54 +228,48 @@ If the video has no chapters, `chapters` is an empty array; if yt-dlp cannot fet
 
 ## REST API (optional)
 
-The repository also ships an HTTP API (Fastify). If you want to run the REST API in Docker, build it locally from `Dockerfile`:
+The repository also ships an HTTP API (Fastify).
 
-#### Build the image
+#### Quick Docker usage
 
-```bash
-docker build -t yt-captions-downloader .
+- Build the image:
+
+  ```bash
+  docker build -t yt-captions-downloader .
+  ```
+
+- Run on the default port:
+
+  ```bash
+  docker run -p 3000:3000 yt-captions-downloader
+  ```
+
+For a more complete REST quick start (including docker-compose and local Node.js),
+see [`docs/quick-start.rest.md`](docs/quick-start.rest.md).
+
+#### Swagger / OpenAPI
+
+Once the REST API is running, interactive API docs are available at:
+
+```text
+http://localhost:3000/docs
 ```
 
-#### Run the container
+If you change `PORT` / `HOST`, adjust the URL accordingly, e.g. `http://<HOST>:<PORT>/docs`.
 
-```bash
-docker run -p 3000:3000 yt-captions-downloader
-```
+#### Troubleshooting: restricted / sign-in required videos
 
-#### Run with custom port
+If yt-dlp is blocked by age gate, sign-in, or region restrictions, you will likely need
+an authenticated `cookies.txt` file and the `COOKIES_FILE_PATH` environment variable.
 
-```bash
-docker run -p 8080:8080 -e PORT=8080 yt-captions-downloader
-```
+The root of this repository includes a sample [`cookies.example.txt`](cookies.example.txt)
+showing the expected Netscape cookies format. For a full guide on:
 
-#### Environment Variables
+- exporting real cookies
+- wiring them into Docker / docker-compose / local Node.js
+- and keeping them secure
 
-- `PORT` - Server port (default: `3000`)
-- `HOST` - Server host (default: `0.0.0.0`)
-- `YT_DLP_TIMEOUT` - Timeout for yt-dlp command in milliseconds (default: `60000` - 60 seconds)
-- `YT_DLP_JS_RUNTIMES` - JS runtime(s) for yt-dlp extraction (e.g., `node` or `node:/usr/bin/node`)
-- `COOKIES_FILE_PATH` - Path to `cookies.txt` in Netscape format (optional, for age-restricted/sign-in)
-- `RATE_LIMIT_MAX` - Maximum number of requests per time window (default: `100`)
-- `RATE_LIMIT_TIME_WINDOW` - Time window for rate limiting (default: `1 minute`)
-- `SHUTDOWN_TIMEOUT` - Graceful shutdown timeout in milliseconds (default: `10000` - 10 seconds)
-
-**Example with custom yt-dlp timeout:**
-
-```bash
-docker run -p 3000:3000 -e YT_DLP_TIMEOUT=120000 yt-captions-downloader
-```
-
-### Troubleshooting: age-restricted / sign-in required
-
-If yt-dlp is blocked by an age gate or sign-in requirement, requests can return `404 Subtitles not found`.
-Provide authenticated cookies via `COOKIES_FILE_PATH` and mount the file into the container:
-
-```bash
-docker run -p 3000:3000 \
-  -e COOKIES_FILE_PATH=/cookies/cookies.txt \
-  -v /path/to/cookies.txt:/cookies/cookies.txt:ro \
-  yt-captions-downloader
-```
+see [`docs/cookies.md`](docs/cookies.md).
 
 #### Run in background
 
@@ -340,272 +336,15 @@ docker rm yt-captions
 
 ## API Documentation
 
-### POST /subtitles
+For detailed REST API endpoint documentation (request/response schemas, examples, etc.),
+use the built-in Swagger UI at:
 
-Retrieve cleaned subtitles (plain text without timestamps) from a YouTube video.
-
-**Request Body:**
-```json
-{
-  "url": "https://www.youtube.com/watch?v=VIDEO_ID",
-  "type": "auto",
-  "lang": "en"
-}
+```text
+http://localhost:3000/docs
 ```
 
-**Parameters:**
-- `url` (required) - YouTube video URL
-- `type` (optional, default: `"auto"`) - Subtitle type: `"official"` (official subtitles) or `"auto"` (auto-generated subtitles)
-- `lang` (optional, default: `"en"`) - Subtitle language code (e.g., `"en"`, `"ru"`, `"es"`, `"fr"`)
+or see [`docs/quick-start.rest.md`](docs/quick-start.rest.md).
 
-**Response (Success):**
-```json
-{
-  "videoId": "VIDEO_ID",
-  "type": "auto",
-  "lang": "en",
-  "text": "Plain text subtitles without timestamps...",
-  "length": 1234
-}
-```
-
-**Response (Error):**
-```json
-{
-  "error": "Error type",
-  "message": "Error message"
-}
-```
-
-**Example Requests:**
-
-Auto-generated subtitles in English (default):
-```bash
-curl -X POST http://localhost:3000/subtitles \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}'
-```
-
-Official subtitles in Russian:
-```bash
-curl -X POST http://localhost:3000/subtitles \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "type": "official", "lang": "ru"}'
-```
-
-Auto-generated subtitles in Spanish:
-```bash
-curl -X POST http://localhost:3000/subtitles \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "type": "auto", "lang": "es"}'
-```
-
-### POST /subtitles/raw
-
-Retrieve raw subtitles from a YouTube video without cleaning (includes timestamps and formatting).
-
-**Request Body:**
-```json
-{
-  "url": "https://www.youtube.com/watch?v=VIDEO_ID",
-  "type": "auto",
-  "lang": "en"
-}
-```
-
-**Parameters:**
-- `url` (required) - YouTube video URL
-- `type` (optional, default: `"auto"`) - Subtitle type: `"official"` or `"auto"`
-- `lang` (optional, default: `"en"`) - Subtitle language code
-
-**Response (Success):**
-```json
-{
-  "videoId": "VIDEO_ID",
-  "type": "auto",
-  "lang": "en",
-  "format": "srt",
-  "content": "1\n00:00:00,000 --> 00:00:05,000\nHello world\n\n2\n00:00:05,000 --> 00:00:10,000\n...",
-  "length": 1234
-}
-```
-
-**Response Fields:**
-- `videoId` - YouTube video ID
-- `type` - Subtitle type (`"official"` or `"auto"`)
-- `lang` - Subtitle language code
-- `format` - Subtitle format (`"srt"` or `"vtt"`)
-- `content` - Raw subtitle file content (SRT or VTT format) without processing
-- `length` - Content length in characters
-
-**Response (Error):**
-```json
-{
-  "error": "Error type",
-  "message": "Error message"
-}
-```
-
-**Example Requests:**
-
-Get raw auto-generated subtitles in English:
-```bash
-curl -X POST http://localhost:3000/subtitles/raw \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}'
-```
-
-Get raw official subtitles in Russian:
-```bash
-curl -X POST http://localhost:3000/subtitles/raw \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "type": "official", "lang": "ru"}'
-```
-
-### POST /subtitles/available
-
-Retrieve the list of available subtitle languages for a YouTube video, split into official and auto-generated subtitles.
-
-**Request Body:**
-```json
-{
-  "url": "https://www.youtube.com/watch?v=VIDEO_ID"
-}
-```
-
-**Parameters:**
-- `url` (required) - YouTube video URL
-
-**Response (Success):**
-```json
-{
-  "videoId": "VIDEO_ID",
-  "official": ["en", "ru"],
-  "auto": ["en"]
-}
-```
-
-**Response Fields:**
-- `videoId` - YouTube video ID
-- `official` - Sorted list of language codes with official subtitles
-- `auto` - Sorted list of language codes with auto-generated subtitles
-
-**Response (Error):**
-```json
-{
-  "error": "Error type",
-  "message": "Error message"
-}
-```
-
-**Example Request:**
-
-```bash
-curl -X POST http://localhost:3000/subtitles/available \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}'
-```
-
-### POST /video/info
-
-Retrieve extended metadata for a YouTube video.
-
-**Request Body:**
-```json
-{
-  "url": "https://www.youtube.com/watch?v=VIDEO_ID"
-}
-```
-
-**Parameters:**
-- `url` (required) - YouTube video URL
-
-**Response (Success):**
-```json
-{
-  "videoId": "VIDEO_ID",
-  "id": "VIDEO_ID",
-  "title": "Video Title",
-  "uploader": "Channel Name",
-  "uploaderId": "channel_id",
-  "channel": "Channel Name",
-  "channelId": "channel_id",
-  "channelUrl": "https://www.youtube.com/channel/...",
-  "duration": 300,
-  "description": "Video description...",
-  "uploadDate": "20250101",
-  "webpageUrl": "https://www.youtube.com/watch?v=VIDEO_ID",
-  "viewCount": 1000,
-  "likeCount": 50,
-  "commentCount": 25,
-  "tags": ["tag1", "tag2"],
-  "categories": ["Education"],
-  "liveStatus": "not_live",
-  "isLive": false,
-  "wasLive": false,
-  "availability": "public",
-  "thumbnail": "https://i.ytimg.com/vi/VIDEO_ID/maxresdefault.jpg",
-  "thumbnails": [
-    { "url": "https://...", "width": 120, "height": 90, "id": "0" }
-  ]
-}
-```
-
-**Response Fields:**
-- `videoId`, `id` - YouTube video ID
-- `title`, `channel`, `duration`, `description`, `uploadDate` - Basic metadata
-- `viewCount`, `likeCount`, `commentCount` - Engagement metrics
-- `tags`, `categories` - Content classification
-- `liveStatus`, `isLive`, `wasLive`, `availability` - Live/availability info
-- `thumbnail`, `thumbnails` - Preview images (may be `null` if unavailable)
-
-**Example Request:**
-
-```bash
-curl -X POST http://localhost:3000/video/info \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}'
-```
-
-### POST /video/chapters
-
-Retrieve chapter markers for a YouTube video.
-
-**Request Body:**
-```json
-{
-  "url": "https://www.youtube.com/watch?v=VIDEO_ID"
-}
-```
-
-**Parameters:**
-- `url` (required) - YouTube video URL
-
-**Response (Success):**
-```json
-{
-  "videoId": "VIDEO_ID",
-  "chapters": [
-    { "startTime": 0, "endTime": 60, "title": "Intro" },
-    { "startTime": 60, "endTime": 300, "title": "Main content" },
-    { "startTime": 300, "endTime": 320, "title": "Outro" }
-  ]
-}
-```
-
-**Response Fields:**
-- `videoId` - YouTube video ID
-- `chapters` - Array of chapter objects; empty array if the video has no chapters
-- `startTime`, `endTime` - Chapter boundaries in seconds
-- `title` - Chapter title
-
-**Example Request:**
-
-```bash
-curl -X POST http://localhost:3000/video/chapters \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}'
-```
 
 ## MCP Server (stdio)
 

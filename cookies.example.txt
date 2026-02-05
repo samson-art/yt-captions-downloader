@@ -1,0 +1,8 @@
+# Netscape HTTP Cookie File
+# Example cookies.txt for yt-dlp.
+# This file does NOT contain real cookies.
+# Copy it to cookies.txt and replace the example entry
+# with your own exported cookies in the same format.
+
+.youtube.com	TRUE	/	FALSE	0	CONSENT	YES+EXAMPLE
+

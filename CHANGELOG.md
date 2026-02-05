@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.6] - 2026-02-05
+
+### Changed
+
+- Upgraded Fastify to v5 and related plugins (`@fastify/cors`, `@fastify/multipart`, `@fastify/rate-limit`, `@fastify/swagger`, `@fastify/swagger-ui`, `@fastify/type-provider-typebox`) to compatible major versions.
+- Bumped `@modelcontextprotocol/sdk` to ^1.26.0.
+
 ## [0.3.5] - 2026-02-04
 
 ### Added

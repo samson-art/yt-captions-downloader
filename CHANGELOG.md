@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **yt-dlp startup check:** REST API, MCP HTTP, and MCP stdio servers run a yt-dlp availability check at startup. If yt-dlp is missing or fails to run, the app logs an ERROR and exits (unless `YT_DLP_REQUIRED=0`). If the installed version is older than the latest on GitHub, a WARNING is logged.
+- **Environment variables:** `YT_DLP_SKIP_VERSION_CHECK` — when set to `1`, skips the GitHub version check and WARNING; `YT_DLP_REQUIRED` — when set to `0`, logs ERROR but does not exit when yt-dlp is missing or fails.
+- **Unit tests:** `src/yt-dlp-check.test.ts` for version parsing, comparison, GitHub fetch, and startup check behavior.
+
+### Changed
+
+- `docs/configuration.md`: Documented `YT_DLP_SKIP_VERSION_CHECK` and `YT_DLP_REQUIRED`; startup checks reference `src/yt-dlp-check.ts`.
+
 ## [0.3.7] - 2026-02-11
 
 ### Added

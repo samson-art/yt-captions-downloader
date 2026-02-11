@@ -7,6 +7,7 @@ import {
 } from '@modelcontextprotocol/sdk/server/sse.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { createMcpServer } from './mcp-core.js';
+import { checkYtDlpAtStartup } from './yt-dlp-check.js';
 
 type StreamableSession = {
   server: ReturnType<typeof createMcpServer>;
@@ -186,6 +187,10 @@ function cleanupExpiredSessions() {
 
 async function start() {
   try {
+    await checkYtDlpAtStartup({
+      error: (msg) => app.log.error(msg),
+      warn: (msg) => app.log.warn(msg),
+    });
     await app.listen({ port: mcpPort, host: mcpHost });
     app.log.info(`MCP HTTP server listening on ${mcpHost}:${mcpPort}`);
 

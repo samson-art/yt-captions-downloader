@@ -19,6 +19,7 @@ import {
   validateAndFetchVideoChapters,
 } from './validation.js';
 import { version as API_VERSION } from './version.js';
+import { checkYtDlpAtStartup } from './yt-dlp-check.js';
 
 // Response schemas for OpenAPI/Swagger
 const ErrorResponseSchema = Type.Object({
@@ -307,6 +308,10 @@ fastify.register(async (instance) => {
 
 const start = async () => {
   try {
+    await checkYtDlpAtStartup({
+      error: (msg) => fastify.log.error(msg),
+      warn: (msg) => fastify.log.warn(msg),
+    });
     const port = process.env.PORT ? Number.parseInt(process.env.PORT, 10) : 3000;
     const host = process.env.HOST || '0.0.0.0';
     await fastify.listen({ port, host });

@@ -20,8 +20,10 @@ These are used by the Fastify REST API in `src/index.ts`.
   - Default: `60000` (60 seconds)
 - **`YT_DLP_JS_RUNTIMES`** – JS runtime(s) for yt-dlp extraction  
   - Examples: `node`, `node:/usr/bin/node`
+- **`YT_DLP_SKIP_VERSION_CHECK`** – if set to `1`, the app does not fetch the latest yt-dlp version from GitHub and does not log a WARNING when the installed version is older. The presence of yt-dlp in the system is still checked at startup.
+- **`YT_DLP_REQUIRED`** – if set to `0`, the app logs an ERROR but does not exit when yt-dlp is missing or fails to run. Default behavior (unset or any other value) is to exit with code `1` when yt-dlp is not available.
 
-These values are read in `src/youtube.ts` and passed to yt-dlp.
+These values are read in `src/youtube.ts` and passed to yt-dlp (timeout, runtimes). Startup checks are implemented in `src/yt-dlp-check.ts`.
 
 ## Cookies file for restricted videos
 

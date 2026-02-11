@@ -1,6 +1,24 @@
 version: "3.9"
 
+# Whisper fallback: when YouTube subtitles are missing, the app can transcribe via Whisper.
+# - Local: run the whisper service below and set WHISPER_MODE=local, WHISPER_BASE_URL=http://whisper:9000.
+# - API: set WHISPER_MODE=api, WHISPER_API_KEY=sk-... (and optionally WHISPER_API_BASE_URL).
+# - Off: omit or set WHISPER_MODE=off (default).
+
 services:
+  whisper:
+    image: onerahmet/openai-whisper-asr-webservice:latest
+    container_name: whisper
+    environment:
+      ASR_ENGINE: openai_whisper
+      ASR_MODEL: base
+    ports:
+      - "9000:9000"
+    # Optional: persist model cache to avoid re-downloading on restart
+    # volumes:
+    #   - "./whisper-cache:/root/.cache"
+    restart: unless-stopped
+
   yt-captions-downloader:
     image: samson-art/yt-captions-downloader:latest
     container_name: yt-captions-downloader
@@ -10,6 +28,12 @@ services:
       YT_DLP_TIMEOUT: "60000"
       YT_DLP_JS_RUNTIMES: "node"
       COOKIES_FILE_PATH: "/cookies.txt"
+      # Whisper fallback (local container)
+      WHISPER_MODE: "local"
+      WHISPER_BASE_URL: "http://whisper:9000"
+      WHISPER_TIMEOUT: "120000"
+      # Without Whisper: comment out the three lines above or set WHISPER_MODE=off
+      # For OpenAI API instead: WHISPER_MODE=api, WHISPER_API_KEY=sk-...
     ports:
       - "3000:3000"
     volumes:
@@ -28,6 +52,10 @@ services:
       YT_DLP_TIMEOUT: "60000"
       YT_DLP_JS_RUNTIMES: "node"
       COOKIES_FILE_PATH: "/cookies.txt"
+      # Whisper fallback (local container)
+      WHISPER_MODE: "local"
+      WHISPER_BASE_URL: "http://whisper:9000"
+      WHISPER_TIMEOUT: "120000"
     ports:
       - "4200:4200"
     volumes:

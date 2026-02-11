@@ -7,6 +7,7 @@ import {
   fetchVideoInfo,
   fetchVideoChapters,
 } from './youtube.js';
+import { getWhisperConfig, transcribeWithWhisper } from './whisper.js';
 
 // TypeBox schema for subtitle request
 export const GetSubtitlesRequestSchema = Type.Object({
@@ -180,7 +181,7 @@ export function validateYouTubeRequest(
 }
 
 /**
- * Validates request and downloads subtitles
+ * Validates request and downloads subtitles (YouTube or Whisper fallback).
  * @param logger - Fastify logger instance for structured logging
  * @returns object with subtitle data or null in case of error
  */
@@ -193,6 +194,7 @@ export async function validateAndDownloadSubtitles(
   type: 'official' | 'auto';
   lang: string;
   subtitlesContent: string;
+  source?: 'youtube' | 'whisper';
 } | null> {
   const validated = validateYouTubeRequest(request.url, reply);
   if (!validated) {
@@ -213,7 +215,17 @@ export async function validateAndDownloadSubtitles(
   }
 
   // Download subtitles with specified parameters
-  const subtitlesContent = await downloadSubtitles(videoId, type, sanitizedLang, logger);
+  let subtitlesContent = await downloadSubtitles(videoId, type, sanitizedLang, logger);
+  let source: 'youtube' | 'whisper' = 'youtube';
+
+  if (!subtitlesContent) {
+    const whisperConfig = getWhisperConfig();
+    if (whisperConfig.mode !== 'off') {
+      logger?.info({ videoId, lang: sanitizedLang }, 'Trying Whisper fallback');
+      subtitlesContent = await transcribeWithWhisper(videoId, sanitizedLang, 'srt', logger);
+      source = 'whisper';
+    }
+  }
 
   if (!subtitlesContent) {
     reply.code(404).send({
@@ -223,7 +235,7 @@ export async function validateAndDownloadSubtitles(
     return null;
   }
 
-  return { videoId, type, lang: sanitizedLang, subtitlesContent };
+  return { videoId, type, lang: sanitizedLang, subtitlesContent, source };
 }
 
 /**

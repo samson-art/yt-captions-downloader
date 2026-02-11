@@ -96,6 +96,27 @@ in their requests.
 
 The MCP HTTP server also supports **`SHUTDOWN_TIMEOUT`** for graceful shutdown (same as REST API).
 
+## Whisper fallback (subtitles not available)
+
+When subtitles cannot be obtained from YouTube (via yt-dlp), the app can optionally use [Whisper](https://github.com/openai/whisper) to transcribe the video audio. Configure via environment variables:
+
+- **`WHISPER_MODE`** – when to use Whisper  
+  - `off` (default) – no fallback; return 404 when subtitles are missing  
+  - `local` – use a self-hosted Whisper HTTP service (e.g. [whisper-asr-webservice](https://github.com/ahmetoner/whisper-asr-webservice) in a Docker container)  
+  - `api` – use an OpenAI-compatible transcription API (e.g. OpenAI Whisper API)
+
+**For local Whisper** (e.g. container `whisper:9000`):
+
+- **`WHISPER_BASE_URL`** – base URL of the Whisper service (e.g. `http://whisper:9000`)
+- **`WHISPER_TIMEOUT`** – request timeout in milliseconds (default: `120000`)
+
+**For Whisper API** (OpenAI or compatible):
+
+- **`WHISPER_API_KEY`** – API key (required when `WHISPER_MODE=api`); never logged
+- **`WHISPER_API_BASE_URL`** – base URL (default: `https://api.openai.com/v1`) for custom endpoints
+
+Flow: the app downloads audio with yt-dlp, sends it to Whisper, and returns the transcript as subtitles (SRT/VTT or plain text). Long videos may hit API size limits (e.g. OpenAI 25 MB); failures are logged and the client receives the same "Subtitles not found" response as when Whisper is disabled.
+
 ## Health endpoint (REST API)
 
 The REST API exposes **`GET /health`**, which returns `200` with `{ "status": "ok" }`. Use it for Kubernetes liveness/readiness or Docker `HEALTHCHECK`.

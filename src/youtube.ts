@@ -298,6 +298,65 @@ export async function fetchAvailableSubtitles(
 }
 
 /**
+ * Downloads audio only for a YouTube video (for Whisper transcription).
+ * Caller must unlink the returned file path when done.
+ * @param videoId - YouTube video ID
+ * @param logger - Fastify logger instance for structured logging
+ * @returns path to the temporary audio file (e.g. .m4a), or null on failure
+ */
+export async function downloadAudio(
+  videoId: string,
+  logger?: FastifyBaseLogger
+): Promise<string | null> {
+  const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+  const tempDir = tmpdir();
+  const timestamp = Date.now();
+  const outputBase = join(tempDir, `audio_${videoId}_${timestamp}`);
+  const outputTemplate = `${outputBase}.%(ext)s`;
+  const { jsRuntimes, remoteComponents, cookiesFilePathFromEnv } = getYtDlpEnv();
+
+  const args = ['--extract-audio', '--audio-format', 'm4a', '--output', outputTemplate, videoUrl];
+  appendYtDlpEnvArgs(args, { jsRuntimes, remoteComponents, cookiesFilePathFromEnv });
+
+  try {
+    const timeout = process.env.YT_DLP_TIMEOUT
+      ? Number.parseInt(process.env.YT_DLP_TIMEOUT, 10)
+      : 60000;
+    logger?.info({ videoId }, 'Downloading audio for Whisper');
+    await execFileAsync('yt-dlp', args, {
+      maxBuffer: 10 * 1024 * 1024,
+      timeout,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    const { readdir } = await import('node:fs/promises');
+    const baseName = outputBase.split(/[/\\]/).pop() ?? '';
+    const files = await readdir(tempDir);
+    const audioFile = files.find(
+      (f) =>
+        f.startsWith(baseName) && (f.endsWith('.m4a') || f.endsWith('.webm') || f.endsWith('.mp3'))
+    );
+    if (audioFile) {
+      return join(tempDir, audioFile);
+    }
+    logger?.error({ videoId, tempDir }, 'Audio file not found after yt-dlp');
+    return null;
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    const execErr = isExecFileException(error) ? error : null;
+    logger?.error(
+      {
+        error: err.message,
+        videoId,
+        ...(execErr && { stdout: execErr.stdout, stderr: execErr.stderr }),
+      },
+      'Error downloading audio via yt-dlp'
+    );
+    return null;
+  }
+}
+
+/**
  * Finds subtitle file in the specified directory
  * yt-dlp creates files in format: baseName.language.srt or baseName.language.vtt
  * @param logger - Fastify logger instance for structured logging

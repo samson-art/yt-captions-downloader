@@ -33,6 +33,7 @@ const SubtitlesResponseSchema = Type.Object({
   lang: Type.String(),
   text: Type.String(),
   length: Type.Number(),
+  source: Type.Optional(Type.Union([Type.Literal('youtube'), Type.Literal('whisper')])),
 });
 
 const RawSubtitlesResponseSchema = Type.Object({
@@ -42,6 +43,7 @@ const RawSubtitlesResponseSchema = Type.Object({
   format: Type.String(),
   content: Type.String(),
   length: Type.Number(),
+  source: Type.Optional(Type.Union([Type.Literal('youtube'), Type.Literal('whisper')])),
 });
 
 const AvailableSubtitlesResponseSchema = Type.Object({
@@ -151,7 +153,7 @@ fastify.register(async (instance) => {
         return; // Response already sent from validateAndDownloadSubtitles
       }
 
-      const { videoId, type, lang, subtitlesContent } = result;
+      const { videoId, type, lang, subtitlesContent, source } = result;
 
       let plainText: string;
       try {
@@ -166,6 +168,7 @@ fastify.register(async (instance) => {
         lang,
         text: plainText,
         length: plainText.length,
+        ...(source && { source }),
       });
     }
   );
@@ -193,7 +196,7 @@ fastify.register(async (instance) => {
         return; // Response already sent from validateAndDownloadSubtitles
       }
 
-      const { videoId, type, lang, subtitlesContent } = result;
+      const { videoId, type, lang, subtitlesContent, source } = result;
 
       const format = detectSubtitleFormat(subtitlesContent);
 
@@ -204,6 +207,7 @@ fastify.register(async (instance) => {
         format,
         content: subtitlesContent,
         length: subtitlesContent.length,
+        ...(source && { source }),
       });
     }
   );

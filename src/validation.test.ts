@@ -8,6 +8,12 @@ import {
   validateAndFetchVideoChapters,
 } from './validation.js';
 import * as youtube from './youtube.js';
+import * as whisper from './whisper.js';
+
+jest.mock('./whisper.js', () => ({
+  getWhisperConfig: jest.fn(() => ({ mode: 'off' })),
+  transcribeWithWhisper: jest.fn(),
+}));
 
 function createReplyMock() {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
@@ -227,9 +233,55 @@ describe('validation', () => {
         type: 'official',
         lang: 'en',
         subtitlesContent: 'subtitle content',
+        source: 'youtube',
       });
       expect(reply.statusCode).toBe(200);
       expect(reply.payload).toBeUndefined();
+    });
+
+    it('should return subtitles from Whisper fallback when YouTube has none', async () => {
+      const reply = createReplyMock();
+      jest.spyOn(youtube, 'downloadSubtitles').mockResolvedValue(null);
+      (whisper.getWhisperConfig as jest.Mock).mockReturnValue({ mode: 'local' });
+      (whisper.transcribeWithWhisper as jest.Mock).mockResolvedValue(
+        '1\n00:00:00,000 --> 00:00:01,000\nWhisper transcript'
+      );
+
+      const result = await validateAndDownloadSubtitles(
+        { url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', type: 'auto', lang: 'en' } as any,
+        reply
+      );
+
+      expect(result).toEqual({
+        videoId: 'dQw4w9WgXcQ',
+        type: 'auto',
+        lang: 'en',
+        subtitlesContent: '1\n00:00:00,000 --> 00:00:01,000\nWhisper transcript',
+        source: 'whisper',
+      });
+      expect(reply.statusCode).toBe(200);
+      expect(whisper.transcribeWithWhisper).toHaveBeenCalledWith(
+        'dQw4w9WgXcQ',
+        'en',
+        'srt',
+        undefined
+      );
+    });
+
+    it('should return 404 when Whisper fallback is enabled but returns null', async () => {
+      const reply = createReplyMock();
+      jest.spyOn(youtube, 'downloadSubtitles').mockResolvedValue(null);
+      (whisper.getWhisperConfig as jest.Mock).mockReturnValue({ mode: 'local' });
+      (whisper.transcribeWithWhisper as jest.Mock).mockResolvedValue(null);
+
+      const result = await validateAndDownloadSubtitles(
+        { url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', type: 'auto', lang: 'en' } as any,
+        reply
+      );
+
+      expect(result).toBeNull();
+      expect(reply.statusCode).toBe(404);
+      expect(reply.payload).toMatchObject({ error: 'Subtitles not found' });
     });
   });
 

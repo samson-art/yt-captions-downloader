@@ -16,6 +16,7 @@ import {
 } from './youtube.js';
 import { isValidYouTubeUrl, sanitizeLang, sanitizeVideoId } from './validation.js';
 import { version } from './version.js';
+import { getWhisperConfig, transcribeWithWhisper } from './whisper.js';
 
 const DEFAULT_RESPONSE_LIMIT = 50000;
 const MAX_RESPONSE_LIMIT = 200000;
@@ -42,6 +43,7 @@ const transcriptOutputSchema = z.object({
   total_length: z.number(),
   start_offset: z.number(),
   end_offset: z.number(),
+  source: z.enum(['youtube', 'whisper']).optional(),
 });
 
 const rawSubtitlesOutputSchema = z.object({
@@ -55,6 +57,7 @@ const rawSubtitlesOutputSchema = z.object({
   total_length: z.number(),
   start_offset: z.number(),
   end_offset: z.number(),
+  source: z.enum(['youtube', 'whisper']).optional(),
 });
 
 const availableSubtitlesOutputSchema = z.object({
@@ -135,7 +138,15 @@ export function createMcpServer() {
     },
     async (args, _extra) => {
       const { videoId, lang, type, responseLimit, nextCursor } = resolveSubtitleArgs(args);
-      const subtitlesContent = await downloadSubtitles(videoId, type, lang);
+      let subtitlesContent = await downloadSubtitles(videoId, type, lang);
+      let source: 'youtube' | 'whisper' = 'youtube';
+      if (!subtitlesContent) {
+        const whisperConfig = getWhisperConfig();
+        if (whisperConfig.mode !== 'off') {
+          subtitlesContent = await transcribeWithWhisper(videoId, lang, 'srt');
+          source = 'whisper';
+        }
+      }
       if (!subtitlesContent) {
         return toolError(`Subtitles not found for "${videoId}" (${type}, ${lang}).`);
       }
@@ -162,6 +173,7 @@ export function createMcpServer() {
           total_length: page.totalLength,
           start_offset: page.startOffset,
           end_offset: page.endOffset,
+          ...(source === 'whisper' && { source }),
         },
       };
     }
@@ -182,7 +194,15 @@ export function createMcpServer() {
     },
     async (args, _extra) => {
       const { videoId, lang, type, responseLimit, nextCursor } = resolveSubtitleArgs(args);
-      const subtitlesContent = await downloadSubtitles(videoId, type, lang);
+      let subtitlesContent = await downloadSubtitles(videoId, type, lang);
+      let source: 'youtube' | 'whisper' = 'youtube';
+      if (!subtitlesContent) {
+        const whisperConfig = getWhisperConfig();
+        if (whisperConfig.mode !== 'off') {
+          subtitlesContent = await transcribeWithWhisper(videoId, lang, 'srt');
+          source = 'whisper';
+        }
+      }
       if (!subtitlesContent) {
         return toolError(`Subtitles not found for "${videoId}" (${type}, ${lang}).`);
       }
@@ -202,6 +222,7 @@ export function createMcpServer() {
           total_length: page.totalLength,
           start_offset: page.startOffset,
           end_offset: page.endOffset,
+          ...(source === 'whisper' && { source }),
         },
       };
     }

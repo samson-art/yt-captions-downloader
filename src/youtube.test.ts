@@ -351,12 +351,14 @@ Hello world`;
       delete process.env.YT_DLP_JS_RUNTIMES;
       delete process.env.YT_DLP_REMOTE_COMPONENTS;
       delete process.env.COOKIES_FILE_PATH;
+      delete process.env.YT_DLP_PROXY;
     });
 
     it('should read and trim environment variables for yt-dlp', () => {
       process.env.YT_DLP_JS_RUNTIMES = ' node ';
       process.env.YT_DLP_REMOTE_COMPONENTS = ' custom ';
       process.env.COOKIES_FILE_PATH = ' /path/to/cookies.txt ';
+      process.env.YT_DLP_PROXY = ' http://proxy:8080 ';
 
       const env = getYtDlpEnv();
 
@@ -364,6 +366,7 @@ Hello world`;
         jsRuntimes: 'node',
         remoteComponents: 'custom',
         cookiesFilePathFromEnv: '/path/to/cookies.txt',
+        proxyFromEnv: 'http://proxy:8080',
       });
     });
 
@@ -380,6 +383,7 @@ Hello world`;
         jsRuntimes: 'node',
         remoteComponents: 'ejs:github',
         cookiesFilePathFromEnv: '/cookies.txt',
+        proxyFromEnv: 'socks5://127.0.0.1:9050',
       };
 
       appendYtDlpEnvArgs(args, env);
@@ -389,12 +393,31 @@ Hello world`;
         '--skip-download',
         '--cookies',
         '/cookies.txt',
+        '--proxy',
+        'socks5://127.0.0.1:9050',
         '--js-runtimes',
         'node',
         '--remote-components',
         'ejs:github',
         'https://example.com',
       ]);
+    });
+
+    it('should add --proxy when proxyFromEnv is set and omit when unset', () => {
+      const argsWithProxy = ['--skip-download', 'https://example.com'];
+      appendYtDlpEnvArgs(argsWithProxy, {
+        proxyFromEnv: 'http://user:pass@proxy:8080',
+      });
+      expect(argsWithProxy).toEqual([
+        '--skip-download',
+        '--proxy',
+        'http://user:pass@proxy:8080',
+        'https://example.com',
+      ]);
+
+      const argsWithoutProxy = ['--skip-download', 'https://example.com'];
+      appendYtDlpEnvArgs(argsWithoutProxy, {});
+      expect(argsWithoutProxy).toEqual(['--skip-download', 'https://example.com']);
     });
   });
 

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-02-13
+
+### Added
+
+- **yt-dlp proxy (optional):** All yt-dlp requests (subtitle download, video info, chapters, audio for Whisper) can be routed through a proxy. Set `YT_DLP_PROXY` to a URL; supported schemes: `http://`, `https://`, `socks5://` (e.g. `http://user:password@proxy.example.com:8080`, `socks5://127.0.0.1:9050` for Tor). Documented in `docs/configuration.md` and `.env.example`; in Docker, set the variable in the container `environment` if needed.
+
+### Changed
+
+- **Unit tests:** `youtube.test.ts` — `getYtDlpEnv` and `appendYtDlpEnvArgs` now cover `YT_DLP_PROXY` / `proxyFromEnv` (trim, presence of `--proxy` in args, omission when unset).
+
 ## [0.4.2] - 2026-02-13
 
 ### Changed

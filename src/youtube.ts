@@ -419,6 +419,7 @@ export function getYtDlpEnv() {
     jsRuntimes: process.env.YT_DLP_JS_RUNTIMES?.trim(),
     remoteComponents: process.env.YT_DLP_REMOTE_COMPONENTS?.trim() || 'ejs:github',
     cookiesFilePathFromEnv: process.env.COOKIES_FILE_PATH?.trim(),
+    proxyFromEnv: process.env.YT_DLP_PROXY?.trim() || undefined,
   };
 }
 
@@ -452,10 +453,19 @@ async function logCookiesFileStatus(
 // Exported for testing.
 export function appendYtDlpEnvArgs(
   args: string[],
-  env: { jsRuntimes?: string; remoteComponents?: string; cookiesFilePathFromEnv?: string }
+  env: {
+    jsRuntimes?: string;
+    remoteComponents?: string;
+    cookiesFilePathFromEnv?: string;
+    proxyFromEnv?: string;
+  }
 ) {
   if (env.cookiesFilePathFromEnv) {
     args.splice(-1, 0, '--cookies', env.cookiesFilePathFromEnv);
+  }
+
+  if (env.proxyFromEnv) {
+    args.splice(-1, 0, '--proxy', env.proxyFromEnv);
   }
 
   if (env.jsRuntimes) {

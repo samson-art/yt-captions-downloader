@@ -6,11 +6,13 @@ version: "3.9"
 # - Off: omit or set WHISPER_MODE=off (default).
 
 services:
+  # GPU: not available in Docker on Mac (Linux VM has no GPU access). Use ASR_MODEL=tiny for faster CPU transcription.
   whisper:
     image: onerahmet/openai-whisper-asr-webservice:latest
     container_name: whisper
     environment:
       ASR_ENGINE: openai_whisper
+      # base = balance; tiny = faster, lower quality; small/medium = slower, better
       ASR_MODEL: base
     ports:
       - "9000:9000"

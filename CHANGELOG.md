@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Smart subtitle auto-discovery:** When `type` and `lang` are both omitted for `POST /subtitles` (REST API) or `get_transcript`/`get_raw_subtitles` (MCP), the service now auto-discovers subtitles instead of defaulting to `auto`/`en`. Flow: (1) fetch available subtitles; (2) try each official language until success; (3) for YouTube auto captions, prefer `*-orig` (original-language tracks) first, then iterate remaining auto; (4) for non-YouTube, iterate auto list as-is; (5) if no subtitles found, fallback to Whisper; (6) return 404 only when all attempts and Whisper fail. Request schema: `type` and `lang` no longer have defaults when omitted, enabling detection of auto-discover vs explicit request. Cache key for auto-discover: `sub:{url}:auto-discovery`.
+- **Whisper request metric:** New Prometheus counter `whisper_requests_total` with label `mode` (`local` or `api`) records each Whisper transcription attempt. Exposed on both REST API and MCP HTTP `/metrics`. `recordWhisperRequest(mode)` in `src/metrics.ts`; called from `transcribeWithWhisper()` when transcription is actually attempted (not when skipped). Documented in `docs/monitoring.md` (metrics tables and PromQL examples). Unit tests in `whisper.test.ts` assert the metric is recorded for local and api mode and not recorded when Whisper returns early.
 
 ## [0.5.0] - 2026-02-13
 

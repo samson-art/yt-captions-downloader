@@ -53,6 +53,14 @@ export const subtitlesExtractionFailuresTotal = new Counter({
   registers: [register],
 });
 
+// Whisper transcription requests
+export const whisperRequestsTotal = new Counter({
+  name: 'whisper_requests_total',
+  help: 'Total requests to Whisper (transcription attempts)',
+  labelNames: ['mode'],
+  registers: [register],
+});
+
 // MCP metrics (labels set when used from MCP)
 export const mcpToolCallsTotal = new Counter({
   name: 'mcp_tool_calls_total',
@@ -121,6 +129,10 @@ export function recordSubtitlesFailure(url: string): void {
     failuresBuffer.shift();
   }
   failuresBuffer.push(entry);
+}
+
+export function recordWhisperRequest(mode: 'local' | 'api'): void {
+  whisperRequestsTotal.inc({ mode });
 }
 
 export function getFailedSubtitlesUrls(): {

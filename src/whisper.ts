@@ -1,5 +1,6 @@
 import { readFile, unlink } from 'node:fs/promises';
 import type { FastifyBaseLogger } from 'fastify';
+import { recordWhisperRequest } from './metrics.js';
 import { downloadAudio } from './youtube.js';
 
 export type WhisperMode = 'off' | 'local' | 'api';
@@ -192,6 +193,8 @@ export async function transcribeWithWhisper(
   if (!audioPath) {
     return null;
   }
+
+  recordWhisperRequest(config.mode);
 
   try {
     let content: string | null;

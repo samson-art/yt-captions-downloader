@@ -1,4 +1,5 @@
 import * as fsPromises from 'node:fs/promises';
+import * as metrics from './metrics.js';
 import { getWhisperConfig, transcribeWithWhisper } from './whisper.js';
 import * as youtube from './youtube.js';
 
@@ -8,6 +9,10 @@ const originalFetch = globalThis.fetch;
 jest.mock('node:fs/promises', () => ({
   readFile: jest.fn().mockResolvedValue(Buffer.from('fake-audio')),
   unlink: jest.fn().mockResolvedValue(undefined),
+}));
+
+jest.mock('./metrics.js', () => ({
+  recordWhisperRequest: jest.fn(),
 }));
 
 beforeEach(() => {
@@ -90,6 +95,7 @@ describe('transcribeWithWhisper', () => {
       'srt'
     );
     expect(result).toBeNull();
+    expect(metrics.recordWhisperRequest).not.toHaveBeenCalled();
   });
 
   it('should call local /asr with audio_file and query params output and language', async () => {
@@ -117,6 +123,26 @@ describe('transcribeWithWhisper', () => {
     expect(formData).toBeInstanceOf(FormData);
     const keys = [...formData.entries()].map(([k]) => k);
     expect(keys).toEqual(['audio_file']);
+    expect(metrics.recordWhisperRequest).toHaveBeenCalledWith('local');
+  });
+
+  it('should call recordWhisperRequest with api when using api mode', async () => {
+    process.env.WHISPER_MODE = 'api';
+    process.env.WHISPER_API_KEY = 'sk-test';
+    process.env.WHISPER_API_BASE_URL = 'https://api.example.com/v1';
+    jest.spyOn(youtube, 'downloadAudio').mockResolvedValue('/tmp/audio.m4a');
+    (fsPromises.readFile as jest.Mock).mockResolvedValue(Buffer.from('fake-audio'));
+    (fsPromises.unlink as jest.Mock).mockResolvedValue(undefined);
+
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve('1\n00:00:00,000 --> 00:00:01,000\nAPI transcript'),
+    });
+    globalThis.fetch = fetchMock;
+
+    await transcribeWithWhisper('https://example.com/v', 'en', 'srt');
+
+    expect(metrics.recordWhisperRequest).toHaveBeenCalledWith('api');
   });
 
   it('should map text format to output=txt for local /asr', async () => {

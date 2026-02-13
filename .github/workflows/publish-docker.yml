@@ -1,4 +1,4 @@
-# Publish Docker images to registry on version tag push (e.g. v0.4.7).
+# Publish Docker images on: version tag push, new GitHub release, or manual run.
 # Requires DOCKERHUB_USERNAME and DOCKERHUB_TOKEN (or other registry secrets).
 name: Publish Docker
 
@@ -6,12 +6,34 @@ on:
   push:
     tags:
       - 'v*'
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (e.g. 0.4.7 or v0.4.7); must match an existing tag'
+        required: true
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
+      - name: Get ref to build
+        id: ref
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            v="${{ inputs.version }}"
+            [ "${v#v}" = "$v" ] && v="v$v"
+            echo "ref=refs/tags/$v" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" = "release" ]; then
+            echo "ref=refs/tags/${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "ref=${{ github.ref }}" >> $GITHUB_OUTPUT
+          fi
+
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.ref.outputs.ref }}
 
       - name: Set up QEMU and buildx
         uses: docker/setup-buildx-action@v3
@@ -24,7 +46,16 @@ jobs:
 
       - name: Extract tag
         id: tag
-        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            v="${{ inputs.version }}"
+          elif [ "${{ github.event_name }}" = "release" ]; then
+            v="${{ github.event.release.tag_name }}"
+          else
+            v="${{ github.ref_name }}"
+          fi
+          version="${v#v}"
+          echo "version=$version" >> $GITHUB_OUTPUT
 
       - name: Build and push REST API image
         uses: docker/build-push-action@v6

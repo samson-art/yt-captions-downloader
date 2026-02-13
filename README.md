@@ -44,6 +44,7 @@ It also includes an optional **REST API** (Fastify), but MCP is the primary focu
 - **Docker-first**: ready for local + remote deployment.
 - **Production-friendly HTTP**: optional auth + allowlists (see `CHANGELOG.md`).
 - **Optional Redis cache**: cache subtitles and metadata to reduce yt-dlp calls (see [Caching](docs/caching.md)).
+- **Prometheus**: metrics for API and MCP, list of failed subtitle extractions (see [Monitoring](docs/monitoring.md)).
 
 ## Example usage (screenshot)
 

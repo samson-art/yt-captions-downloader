@@ -3,7 +3,7 @@
  * Usage: import from other scripts or use as k6 shared module.
  */
 
-export const BASE_URL = 'http://100.65.116.45:3000';
+export const BASE_URL = _env.BASE_URL || 'http://127.0.0.1:3000';
 
 /**
  * Video pool entry: id, duration (seconds), optional subtitle language codes.
@@ -71,7 +71,7 @@ function pickTypeAndLang(entry) {
  * Returns { url, type, lang } for load tests. Type and lang match this video's available subtitles when metadata present.
  */
 export function getVideoRequest(iter, vu) {
-  const idx = Math.abs((vu * 10000 + (iter | 0)) % VIDEO_POOL.length);
+  const idx = Math.abs((vu * 10000 + Math.trunc(iter)) % VIDEO_POOL.length);
   const entry = VIDEO_POOL[idx];
   const url = `https://www.youtube.com/watch?v=${entry.id}`;
   const { type, lang } = pickTypeAndLang(entry);

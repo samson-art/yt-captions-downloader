@@ -7,9 +7,17 @@ import {
 } from '@modelcontextprotocol/sdk/server/sse.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { close as closeCache } from './cache.js';
+import {
+  getFailedSubtitlesUrls,
+  renderPrometheus,
+  setMcpSessionCount,
+  setMetricsService,
+} from './metrics.js';
 import { ensureAuth, getHeaderValue } from './mcp-auth.js';
 import { createMcpServer } from './mcp-core.js';
 import { checkYtDlpAtStartup } from './yt-dlp-check.js';
+
+setMetricsService('mcp');
 
 type StreamableSession = {
   server: ReturnType<typeof createMcpServer>;
@@ -48,6 +56,20 @@ app.get('/health', async (_request, reply) => {
   return reply.code(200).send({ status: 'ok' });
 });
 
+app.get('/metrics', async (_request, reply) => {
+  const metrics = await renderPrometheus();
+  return reply.header('Content-Type', 'text/plain; charset=utf-8').send(metrics);
+});
+
+app.get('/failures', async (_request, reply) => {
+  return reply.code(200).send(getFailedSubtitlesUrls());
+});
+
+function updateMcpSessionGauges(): void {
+  setMcpSessionCount('streamable', streamableSessions.size);
+  setMcpSessionCount('sse', sseSessions.size);
+}
+
 async function handleStreamablePost(
   request: FastifyRequest<{ Body?: unknown }>,
   reply: FastifyReply
@@ -72,6 +94,7 @@ async function handleStreamablePost(
       sessionIdGenerator: () => randomUUID(),
       onsessioninitialized: (id) => {
         streamableSessions.set(id, { server, transport, createdAt: Date.now() });
+        updateMcpSessionGauges();
       },
     });
 
@@ -79,6 +102,7 @@ async function handleStreamablePost(
       const id = transport.sessionId;
       if (id) {
         streamableSessions.delete(id);
+        updateMcpSessionGauges();
       }
     };
 
@@ -144,6 +168,7 @@ app.get('/sse', async (request, reply) => {
 
   transport.onclose = () => {
     sseSessions.delete(transport.sessionId);
+    updateMcpSessionGauges();
   };
   transport.onerror = (error) => {
     app.log.error({ error }, 'SSE transport error');
@@ -151,6 +176,7 @@ app.get('/sse', async (request, reply) => {
 
   await server.connect(transport);
   sseSessions.set(transport.sessionId, { server, transport, createdAt: Date.now() });
+  updateMcpSessionGauges();
 });
 
 app.post('/message', async (request, reply) => {

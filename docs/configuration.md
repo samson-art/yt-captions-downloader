@@ -160,7 +160,8 @@ See [`docs/caching.md`](caching.md) for a short overview of what is cached and e
 
 - **`GET /health`** – returns `200` with `{ "status": "ok" }`. Use it for Kubernetes liveness or Docker `HEALTHCHECK` (no dependency checks).
 - **`GET /health/ready`** – readiness check. Returns `200` when the app is ready to serve traffic. When `CACHE_MODE=redis`, it pings Redis; if Redis is unreachable, returns `503` with `{ "status": "not ready", "redis": "unreachable" }`. Use for Kubernetes readiness so the pod is not sent traffic until Redis is available.
-- **`GET /metrics`** – Prometheus text exposition format. Counters: `http_requests_total`, `http_request_errors_total`, `cache_hits_total`, `cache_misses_total`. Useful for monitoring on a VPS or in Kubernetes.
+- **`GET /metrics`** – Prometheus text exposition format. See [Monitoring](monitoring.md) for full metric list.
+- **`GET /failures`** – JSON list of URLs where subtitle extraction failed (YouTube + Whisper both failed).
 
 ## Using .env files
 

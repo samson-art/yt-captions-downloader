@@ -8,21 +8,6 @@ version: "3.9"
 # Optional Redis cache: see docs/caching.md for CACHE_MODE=redis and CACHE_REDIS_URL.
 
 services:
-  # GPU: not available in Docker on Mac (Linux VM has no GPU access). Use ASR_MODEL=tiny for faster CPU transcription.
-  whisper:
-    image: onerahmet/openai-whisper-asr-webservice:latest
-    container_name: whisper
-    environment:
-      ASR_ENGINE: openai_whisper
-      # base = balance; tiny = faster, lower quality; small/medium = slower, better
-      ASR_MODEL: base
-    ports:
-      - "9000:9000"
-    # Optional: persist model cache to avoid re-downloading on restart
-    # volumes:
-    #   - "./whisper-cache:/root/.cache"
-    restart: unless-stopped
-
   transcriptor-mcp-api:
     image: artsamsonov/transcriptor-mcp-api:latest
     container_name: transcriptor-mcp-api

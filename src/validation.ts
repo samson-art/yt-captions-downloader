@@ -10,7 +10,7 @@ import {
 } from './youtube.js';
 import { getWhisperConfig, transcribeWithWhisper } from './whisper.js';
 import { getCacheConfig, get, set } from './cache.js';
-import { recordCacheHit, recordCacheMiss } from './metrics.js';
+import { recordCacheHit, recordCacheMiss, recordSubtitlesFailure } from './metrics.js';
 
 /** Allowed video hostnames for top-10 platforms (exact or suffix match). */
 export const ALLOWED_VIDEO_DOMAINS = [
@@ -329,6 +329,9 @@ export async function validateAndDownloadSubtitles(
   }
 
   if (!subtitlesContent) {
+    if (getWhisperConfig().mode !== 'off') {
+      recordSubtitlesFailure(url);
+    }
     throw new NotFoundError(
       `No ${type} subtitles available for language "${sanitizedLang}"`,
       'Subtitles not found'

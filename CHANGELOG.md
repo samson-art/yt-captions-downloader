@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-02-13
+
+### Added
+
+- **Prometheus metrics (prom-client):** Metrics are now produced with `prom-client`. REST API: `http_requests_total` (labels: method, route, status_code), `http_request_duration_seconds` histogram, `http_request_errors_total`, `cache_hits_total`, `cache_misses_total`, `subtitles_extraction_failures_total`. MCP HTTP server exposes `GET /metrics` and `GET /failures`; MCP metrics: `mcp_tool_calls_total`, `mcp_tool_errors_total` (by tool), `mcp_session_total` gauge (streamable/sse), `mcp_request_duration_seconds` histogram, plus `subtitles_extraction_failures_total`. Default label `service=api` or `service=mcp` for scraping both from one Prometheus.
+- **Failures endpoint:** `GET /failures` (REST and MCP HTTP) returns JSON with the list of URLs where subtitle extraction failed (YouTube + Whisper both failed). Keeps last 100 entries per process in memory; only recorded when Whisper fallback is enabled and was attempted. Validation layer calls `recordSubtitlesFailure(url)` when no subtitles are found after Whisper attempt.
+- **Monitoring documentation:** `docs/monitoring.md` — quick start with Docker Compose (Prometheus + Grafana), endpoints table (metrics, failures), full metric list for API and MCP, PromQL examples, and scrape config for custom Prometheus.
+- **README:** Features section — link to [Monitoring](docs/monitoring.md) (Prometheus + Grafana, failed-extractions list).
+- **docs/configuration.md:** Health and metrics — `GET /metrics` now references monitoring.md for full list; added `GET /failures` (JSON list of failed subtitle URLs).
+
+### Changed
+
+- **Metrics implementation:** `src/metrics.ts` rewritten to use `prom-client` (Registry, Counter, Histogram, Gauge). `renderPrometheus()` is async and returns `register.metrics()`. REST API: request recording uses `onRequest`/`onResponse` hooks with method, route, status_code, and duration; errors counted in onResponse when statusCode >= 400 (no longer in error handler). MCP core: each tool records success via `recordMcpToolCall(tool)` and errors via `recordMcpToolError(tool)`; MCP HTTP sets `setMetricsService('mcp')`, exposes `/metrics` and `/failures`, and updates session gauge for streamable/sse sessions.
+- **docker-compose.example.yml:** Removed standalone `whisper` service from the example (simplified stack; Whisper can be run separately or via external URL).
+- **Load tests:** `load/config.js` — BASE_URL can be overridden via env (e.g. `LOAD_BASE_URL`); pool index uses `Math.trunc(iter)` for clarity.
+
+### Dependencies
+
+- **Added:** `prom-client` ^15.1.3 for Prometheus metrics.
+
 ## [0.4.9] - 2026-02-13
 
 ### Added

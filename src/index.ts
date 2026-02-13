@@ -22,7 +22,7 @@ import {
 import { version as API_VERSION } from './version.js';
 import { checkYtDlpAtStartup } from './yt-dlp-check.js';
 import { close as closeCache, ping as cachePing } from './cache.js';
-import { recordError, recordRequest, renderPrometheus } from './metrics.js';
+import { recordRequest, renderPrometheus, getFailedSubtitlesUrls } from './metrics.js';
 
 // Response schemas for OpenAPI/Swagger
 const ErrorResponseSchema = Type.Object({
@@ -82,7 +82,6 @@ const fastify = Fastify({
 }).withTypeProvider<TypeBoxTypeProvider>();
 
 fastify.setErrorHandler((error, _request, reply) => {
-  recordError();
   const statusCode = error instanceof HttpError ? error.statusCode : 500;
   const message = error instanceof Error ? error.message : 'Unknown error occurred';
   const errorLabel = error instanceof HttpError ? error.errorLabel : 'Internal server error';
@@ -126,11 +125,29 @@ fastify.get('/health/ready', async (_request, reply) => {
 });
 
 fastify.get('/metrics', async (_request, reply) => {
-  return reply.header('Content-Type', 'text/plain; charset=utf-8').send(renderPrometheus());
+  const metrics = await renderPrometheus();
+  return reply.header('Content-Type', 'text/plain; charset=utf-8').send(metrics);
 });
 
-fastify.addHook('onResponse', (_request, _reply, done) => {
-  recordRequest();
+fastify.get('/failures', async (_request, reply) => {
+  return reply.code(200).send(getFailedSubtitlesUrls());
+});
+
+const requestStartTimes = new WeakMap<object, number>();
+fastify.addHook('onRequest', (request, _reply, done) => {
+  requestStartTimes.set(request.raw, Date.now());
+  done();
+});
+
+fastify.addHook('onResponse', (request, reply, done) => {
+  const start = requestStartTimes.get(request.raw);
+  if (start !== undefined) {
+    const duration = (Date.now() - start) / 1000;
+    const method = request.method;
+    const route = request.routeOptions?.url ?? request.url?.split('?')[0] ?? 'unknown';
+    const statusCode = reply.statusCode;
+    recordRequest(method, route, statusCode, duration);
+  }
   done();
 });
 

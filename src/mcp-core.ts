@@ -16,7 +16,14 @@ import {
   validateAndFetchVideoInfo,
   validateAndFetchVideoChapters,
 } from './validation.js';
+import { recordMcpToolCall, recordMcpToolError } from './metrics.js';
 import { version } from './version.js';
+
+const TOOL_GET_TRANSCRIPT = 'get_transcript';
+const TOOL_GET_RAW_SUBTITLES = 'get_raw_subtitles';
+const TOOL_GET_AVAILABLE_SUBTITLES = 'get_available_subtitles';
+const TOOL_GET_VIDEO_INFO = 'get_video_info';
+const TOOL_GET_VIDEO_CHAPTERS = 'get_video_chapters';
 
 function createDefaultLogger(): FastifyBaseLogger {
   return pino({ level: process.env.LOG_LEVEL || 'info' }) as unknown as FastifyBaseLogger;
@@ -156,6 +163,7 @@ export function createMcpServer(opts?: CreateMcpServerOptions) {
       try {
         resolved = resolveSubtitleArgs(args);
       } catch (err) {
+        recordMcpToolError(TOOL_GET_TRANSCRIPT);
         return toolError(err instanceof Error ? err.message : 'Invalid request.');
       }
 
@@ -167,9 +175,11 @@ export function createMcpServer(opts?: CreateMcpServerOptions) {
         );
       } catch (err) {
         if (err instanceof NotFoundError) {
+          recordMcpToolError(TOOL_GET_TRANSCRIPT);
           return toolError(`Subtitles not found (${resolved.type}, ${resolved.lang}).`);
         }
         if (err instanceof ValidationError) {
+          recordMcpToolError(TOOL_GET_TRANSCRIPT);
           return toolError(err.message);
         }
         throw err;
@@ -179,11 +189,13 @@ export function createMcpServer(opts?: CreateMcpServerOptions) {
       try {
         plainText = parseSubtitles(result.subtitlesContent);
       } catch (error) {
+        recordMcpToolError(TOOL_GET_TRANSCRIPT);
         return toolError(
           error instanceof Error ? error.message : 'Failed to parse subtitles content.'
         );
       }
 
+      recordMcpToolCall(TOOL_GET_TRANSCRIPT);
       const page = paginateText(plainText, resolved.responseLimit, resolved.nextCursor);
       return {
         content: [textContent(page.chunk)],
@@ -222,6 +234,7 @@ export function createMcpServer(opts?: CreateMcpServerOptions) {
       try {
         resolved = resolveSubtitleArgs(args);
       } catch (err) {
+        recordMcpToolError(TOOL_GET_RAW_SUBTITLES);
         return toolError(err instanceof Error ? err.message : 'Invalid request.');
       }
 
@@ -233,14 +246,17 @@ export function createMcpServer(opts?: CreateMcpServerOptions) {
         );
       } catch (err) {
         if (err instanceof NotFoundError) {
+          recordMcpToolError(TOOL_GET_RAW_SUBTITLES);
           return toolError(`Subtitles not found (${resolved.type}, ${resolved.lang}).`);
         }
         if (err instanceof ValidationError) {
+          recordMcpToolError(TOOL_GET_RAW_SUBTITLES);
           return toolError(err.message);
         }
         throw err;
       }
 
+      recordMcpToolCall(TOOL_GET_RAW_SUBTITLES);
       const format = detectSubtitleFormat(result.subtitlesContent);
       const page = paginateText(
         result.subtitlesContent,
@@ -282,6 +298,7 @@ export function createMcpServer(opts?: CreateMcpServerOptions) {
     async (args, _extra) => {
       const url = resolveVideoUrl(args.url);
       if (!url) {
+        recordMcpToolError(TOOL_GET_AVAILABLE_SUBTITLES);
         return toolError(
           'Invalid video URL. Use a URL from a supported platform or YouTube video ID.'
         );
@@ -292,14 +309,17 @@ export function createMcpServer(opts?: CreateMcpServerOptions) {
         result = await validateAndFetchAvailableSubtitles({ url }, log);
       } catch (err) {
         if (err instanceof NotFoundError) {
+          recordMcpToolError(TOOL_GET_AVAILABLE_SUBTITLES);
           return toolError('Failed to fetch subtitle availability for this video.');
         }
         if (err instanceof ValidationError) {
+          recordMcpToolError(TOOL_GET_AVAILABLE_SUBTITLES);
           return toolError(err.message);
         }
         throw err;
       }
 
+      recordMcpToolCall(TOOL_GET_AVAILABLE_SUBTITLES);
       const text = [
         `Official: ${result.official.length ? result.official.join(', ') : 'none'}`,
         `Auto: ${result.auto.length ? result.auto.join(', ') : 'none'}`,
@@ -333,6 +353,7 @@ export function createMcpServer(opts?: CreateMcpServerOptions) {
     async (args, _extra) => {
       const url = resolveVideoUrl(args.url);
       if (!url) {
+        recordMcpToolError(TOOL_GET_VIDEO_INFO);
         return toolError(
           'Invalid video URL. Use a URL from a supported platform or YouTube video ID.'
         );
@@ -343,9 +364,11 @@ export function createMcpServer(opts?: CreateMcpServerOptions) {
         result = await validateAndFetchVideoInfo({ url }, log);
       } catch (err) {
         if (err instanceof NotFoundError) {
+          recordMcpToolError(TOOL_GET_VIDEO_INFO);
           return toolError('Failed to fetch video info.');
         }
         if (err instanceof ValidationError) {
+          recordMcpToolError(TOOL_GET_VIDEO_INFO);
           return toolError(err.message);
         }
         throw err;
@@ -353,8 +376,10 @@ export function createMcpServer(opts?: CreateMcpServerOptions) {
 
       const { videoId, info } = result;
       if (!info) {
+        recordMcpToolError(TOOL_GET_VIDEO_INFO);
         return toolError('Failed to fetch video info.');
       }
+      recordMcpToolCall(TOOL_GET_VIDEO_INFO);
       const textLines = [
         info.title ? `Title: ${info.title}` : null,
         info.channel ? `Channel: ${info.channel}` : null,
@@ -409,6 +434,7 @@ export function createMcpServer(opts?: CreateMcpServerOptions) {
     async (args, _extra) => {
       const url = resolveVideoUrl(args.url);
       if (!url) {
+        recordMcpToolError(TOOL_GET_VIDEO_CHAPTERS);
         return toolError(
           'Invalid video URL. Use a URL from a supported platform or YouTube video ID.'
         );
@@ -419,14 +445,17 @@ export function createMcpServer(opts?: CreateMcpServerOptions) {
         result = await validateAndFetchVideoChapters({ url }, log);
       } catch (err) {
         if (err instanceof NotFoundError) {
+          recordMcpToolError(TOOL_GET_VIDEO_CHAPTERS);
           return toolError('Failed to fetch chapters for this video.');
         }
         if (err instanceof ValidationError) {
+          recordMcpToolError(TOOL_GET_VIDEO_CHAPTERS);
           return toolError(err.message);
         }
         throw err;
       }
 
+      recordMcpToolCall(TOOL_GET_VIDEO_CHAPTERS);
       const chapters = result.chapters ?? [];
       const text =
         chapters.length === 0

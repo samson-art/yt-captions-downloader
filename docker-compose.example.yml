@@ -4,6 +4,8 @@ version: "3.9"
 # - Local: run the whisper service below and set WHISPER_MODE=local, WHISPER_BASE_URL=http://whisper:9000.
 # - API: set WHISPER_MODE=api, WHISPER_API_KEY=sk-... (and optionally WHISPER_API_BASE_URL).
 # - Off: omit or set WHISPER_MODE=off (default).
+#
+# Optional Redis cache: see docs/caching.md for CACHE_MODE=redis and CACHE_REDIS_URL.
 
 services:
   # GPU: not available in Docker on Mac (Linux VM has no GPU access). Use ASR_MODEL=tiny for faster CPU transcription.
@@ -28,9 +30,10 @@ services:
       PORT: "3000"
       HOST: "0.0.0.0"
       YT_DLP_TIMEOUT: "60000"
+      SHUTDOWN_TIMEOUT: "60000"
       YT_DLP_JS_RUNTIMES: "node"
       COOKIES_FILE_PATH: "/cookies.txt"
-      # Optional: LOG_LEVEL, YT_DLP_SKIP_VERSION_CHECK, YT_DLP_REQUIRED (see .env.example)
+      # Optional: LOG_LEVEL, YT_DLP_SKIP_VERSION_CHECK, YT_DLP_REQUIRED, CACHE_* (see .env.example and docs/configuration.md)
       # Whisper fallback (local container)
       WHISPER_MODE: "local"
       WHISPER_BASE_URL: "http://whisper:9000"
@@ -53,10 +56,10 @@ services:
       MCP_PORT: "4200"
       MCP_HOST: "0.0.0.0"
       YT_DLP_TIMEOUT: "60000"
+      SHUTDOWN_TIMEOUT: "60000"
       YT_DLP_JS_RUNTIMES: "node"
       COOKIES_FILE_PATH: "/cookies.txt"
-      # Optional: MCP_AUTH_TOKEN, MCP_ALLOWED_HOSTS, MCP_ALLOWED_ORIGINS, LOG_LEVEL (see .env.example)
-      # Optional: YT_DLP_SKIP_VERSION_CHECK=1, YT_DLP_REQUIRED=0
+      # Optional: MCP_AUTH_TOKEN, MCP_ALLOWED_HOSTS, MCP_ALLOWED_ORIGINS, LOG_LEVEL, CACHE_* (see .env.example and docs/configuration.md)
       # Whisper fallback (local container)
       WHISPER_MODE: "local"
       WHISPER_BASE_URL: "http://whisper:9000"

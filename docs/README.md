@@ -7,6 +7,8 @@ The detailed documentation is split into focused guides:
 - **REST API quick start & endpoints**: see `docs/quick-start.rest.md`
 - **Configuration & environment variables**: see `docs/configuration.md`
 - **Using cookies for restricted videos**: see `docs/cookies.md`
+- **Redis cache**: see `docs/caching.md`
+- **Load testing (k6)**: see `load/load-testing.md`
 
 If you are unsure where to start:
 

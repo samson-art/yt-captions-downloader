@@ -14,7 +14,7 @@ For a full list of configuration options, see `docs/configuration.md`.
 Build the image:
 
 ```bash
-docker build -t transcriptor-mcp-api .
+docker build -t transcriptor-mcp-api -f Dockerfile --target api .
 ```
 
 Run the container on the default port:

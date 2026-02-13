@@ -180,6 +180,8 @@ For local development, you can use an `.env` file:
 Most process managers and tooling (e.g. `npm`, `docker-compose`, or dev environments)
 can load this file automatically or via additional configuration.
 
+For local overrides with sensitive values (e.g. `COOKIES_FILE_PATH`, `WHISPER_API_KEY`, `CACHE_REDIS_URL`, `MCP_AUTH_TOKEN`), copy `.env.local.example` to `.env.local` and fill in the values. The `.env.local` file is gitignored; do not commit real credentials.
+
 ## E2E smoke test
 
 The project includes an e2e smoke test (`npm run test:e2e:api`) that starts Docker containers for the REST API and (optionally) the MCP server, then checks API endpoints and MCP transports (stdio, streamable HTTP at `/mcp`, SSE at `/sse`). See the main [README](../README.md#e2e-smoke-tests-rest-api--mcp-docker) for the list of env vars: `SMOKE_SKIP_MCP`, `SMOKE_MCP_IMAGE`, `SMOKE_MCP_PORT`, `SMOKE_MCP_URL`, `SMOKE_MCP_AUTH_TOKEN`, and the API-related `SMOKE_*` variables.

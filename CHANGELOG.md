@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.9] - 2026-02-13
+
+### Added
+
+- **`.env.local.example`:** Template for local overrides (COOKIES_FILE_PATH, WHISPER_API_KEY, CACHE_REDIS_URL, MCP_AUTH_TOKEN). Copy to `.env.local` and fill in; file is gitignored.
+- **`docs/README.md`:** Links to `docs/caching.md` and `load/load-testing.md`.
+
+### Changed
+
+- **Documentation sync:** README, docker-compose.example.yml, .env.example, docs, and docker-hub-description.md aligned for consistency.
+- **`.env.example`:** Added MCP vars (MCP_PORT, MCP_HOST, MCP_AUTH_TOKEN, MCP_ALLOWED_HOSTS, MCP_ALLOWED_ORIGINS), LOG_LEVEL, YT_DLP_SKIP_VERSION_CHECK, YT_DLP_REQUIRED.
+- **`docker-compose.example.yml`:** Added SHUTDOWN_TIMEOUT; comments reference `.env.example`, `docs/configuration.md`, and `docs/caching.md`.
+- **README.md:** Docker build for REST API now uses `-f Dockerfile --target api`.
+- **`docs/quick-start.rest.md`:** Docker build command updated to use `-f Dockerfile --target api`.
+- **`docs/configuration.md`:** Added `.env.local.example` usage for local overrides with sensitive values.
+- **`docker-hub-description.md`:** Added Optional Redis cache to Features; env table extended with CACHE_*, MCP_RATE_LIMIT_*, MCP_SESSION_*, SHUTDOWN_TIMEOUT; reference to `docker-compose.example.yml` for full Whisper/COOKIES setup.
+
 ## [0.4.8] - 2026-02-13
 
 ### Fixed

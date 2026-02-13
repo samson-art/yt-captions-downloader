@@ -239,7 +239,7 @@ The repository also ships an HTTP API (Fastify).
 - Build the image:
 
   ```bash
-  docker build -t transcriptor-mcp-api .
+  docker build -t transcriptor-mcp-api -f Dockerfile --target api .
   ```
 
 - Run on the default port:

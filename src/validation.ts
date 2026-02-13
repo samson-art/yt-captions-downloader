@@ -1,7 +1,8 @@
-import { FastifyReply, FastifyBaseLogger } from 'fastify';
+import { FastifyBaseLogger } from 'fastify';
 import { Type, Static } from '@sinclair/typebox';
+import { NotFoundError, ValidationError } from './errors.js';
 import {
-  extractVideoId,
+  extractYouTubeVideoId,
   downloadSubtitles,
   fetchVideoInfo,
   fetchVideoChapters,
@@ -118,7 +119,7 @@ export function isValidYouTubeUrl(url: string): boolean {
     }
 
     // Check for video ID in URL
-    return extractVideoId(url) !== null;
+    return extractYouTubeVideoId(url) !== null;
   } catch {
     return false;
   }
@@ -184,17 +185,15 @@ export function normalizeVideoInput(urlOrId: string): string | null {
 
 /**
  * Validates video URL or YouTube ID and returns normalized URL.
- * Sends 400 on validation failure.
+ * @throws ValidationError on validation failure
  */
-export function validateVideoRequest(url: string, reply: FastifyReply): { url: string } | null {
+export function validateVideoRequest(url: string): { url: string } {
   const normalized = normalizeVideoInput(url);
   if (!normalized) {
-    reply.code(400).send({
-      error: 'Invalid video URL',
-      message:
-        'Please provide a valid video URL (YouTube, Twitter/X, Instagram, TikTok, Twitch, Vimeo, Facebook, Bilibili, VK, Dailymotion) or YouTube video ID',
-    });
-    return null;
+    throw new ValidationError(
+      'Please provide a valid video URL (YouTube, Twitter/X, Instagram, TikTok, Twitch, Vimeo, Facebook, Bilibili, VK, Dailymotion) or YouTube video ID',
+      'Invalid video URL'
+    );
   }
   return { url: normalized };
 }
@@ -250,39 +249,26 @@ export function sanitizeLang(lang: string): string | null {
 
 /**
  * Validates YouTube URL and returns sanitized video ID.
- * Sends error response and returns null on validation failure.
  * @param url - YouTube video URL from request
- * @param reply - Fastify reply to send error responses
- * @returns object with videoId or null
+ * @returns object with videoId
+ * @throws ValidationError on validation failure
  */
-export function validateYouTubeRequest(
-  url: string,
-  reply: FastifyReply
-): { videoId: string } | null {
+export function validateYouTubeRequest(url: string): { videoId: string } {
   if (!isValidYouTubeUrl(url)) {
-    reply.code(400).send({
-      error: 'Invalid YouTube URL',
-      message: 'Please provide a valid YouTube video URL',
-    });
-    return null;
+    throw new ValidationError('Please provide a valid YouTube video URL', 'Invalid YouTube URL');
   }
 
-  const extractedVideoId = extractVideoId(url);
+  const extractedVideoId = extractYouTubeVideoId(url);
   if (!extractedVideoId) {
-    reply.code(400).send({
-      error: 'Invalid YouTube URL',
-      message: 'Could not extract video ID from the provided URL',
-    });
-    return null;
+    throw new ValidationError(
+      'Could not extract video ID from the provided URL',
+      'Invalid YouTube URL'
+    );
   }
 
   const videoId = sanitizeVideoId(extractedVideoId);
   if (!videoId) {
-    reply.code(400).send({
-      error: 'Invalid video ID',
-      message: 'Video ID contains invalid characters',
-    });
-    return null;
+    throw new ValidationError('Video ID contains invalid characters', 'Invalid video ID');
   }
 
   return { videoId };
@@ -291,11 +277,11 @@ export function validateYouTubeRequest(
 /**
  * Validates request and downloads subtitles (supported platforms or Whisper fallback).
  * @param logger - Fastify logger instance for structured logging
- * @returns object with subtitle data or null in case of error
+ * @returns object with subtitle data
+ * @throws ValidationError on invalid input, NotFoundError when subtitles are not available
  */
 export async function validateAndDownloadSubtitles(
   request: GetSubtitlesRequest,
-  reply: FastifyReply,
   logger?: FastifyBaseLogger
 ): Promise<{
   videoId: string;
@@ -303,22 +289,14 @@ export async function validateAndDownloadSubtitles(
   lang: string;
   subtitlesContent: string;
   source?: 'youtube' | 'whisper';
-} | null> {
-  const validated = validateVideoRequest(request.url, reply);
-  if (!validated) {
-    return null;
-  }
-
+}> {
+  const validated = validateVideoRequest(request.url);
   const { url } = validated;
   const { type = 'auto', lang = 'en' } = request;
 
   const sanitizedLang = sanitizeLang(lang);
   if (!sanitizedLang) {
-    reply.code(400).send({
-      error: 'Invalid language code',
-      message: 'Language code contains invalid characters',
-    });
-    return null;
+    throw new ValidationError('Language code contains invalid characters', 'Invalid language code');
   }
 
   let subtitlesContent = await downloadSubtitles(url, type, sanitizedLang, logger);
@@ -334,15 +312,14 @@ export async function validateAndDownloadSubtitles(
   }
 
   if (!subtitlesContent) {
-    reply.code(404).send({
-      error: 'Subtitles not found',
-      message: `No ${type} subtitles available for language "${sanitizedLang}"`,
-    });
-    return null;
+    throw new NotFoundError(
+      `No ${type} subtitles available for language "${sanitizedLang}"`,
+      'Subtitles not found'
+    );
   }
 
   const data = await fetchYtDlpJson(url, logger);
-  const videoId = data?.id ?? extractVideoId(url) ?? 'unknown';
+  const videoId = data?.id ?? extractYouTubeVideoId(url) ?? 'unknown';
 
   return { videoId, type, lang: sanitizedLang, subtitlesContent, source };
 }
@@ -350,33 +327,25 @@ export async function validateAndDownloadSubtitles(
 /**
  * Validates request and returns available subtitles for a video
  * @param logger - Fastify logger instance for structured logging
- * @returns object with available subtitles data or null in case of error
+ * @returns object with available subtitles data
+ * @throws ValidationError on invalid input, NotFoundError when video is not found
  */
 export async function validateAndFetchAvailableSubtitles(
   request: GetAvailableSubtitlesRequest,
-  reply: FastifyReply,
   logger?: FastifyBaseLogger
 ): Promise<{
   videoId: string;
   official: string[];
   auto: string[];
-} | null> {
-  const validated = validateVideoRequest(request.url, reply);
-  if (!validated) {
-    return null;
-  }
-
+}> {
+  const validated = validateVideoRequest(request.url);
   const { url } = validated;
   const data = await fetchYtDlpJson(url, logger);
   if (!data) {
-    reply.code(404).send({
-      error: 'Video not found',
-      message: 'Could not fetch video data for the provided URL',
-    });
-    return null;
+    throw new NotFoundError('Could not fetch video data for the provided URL', 'Video not found');
   }
 
-  const videoId = data.id ?? extractVideoId(url) ?? 'unknown';
+  const videoId = data.id ?? extractYouTubeVideoId(url) ?? 'unknown';
   const official = data.subtitles
     ? Object.keys(data.subtitles).sort((a, b) => a.localeCompare(b))
     : [];
@@ -389,54 +358,38 @@ export async function validateAndFetchAvailableSubtitles(
 
 /**
  * Validates request and returns video info
+ * @throws ValidationError on invalid input, NotFoundError when video is not found
  */
 export async function validateAndFetchVideoInfo(
   request: GetVideoInfoRequest,
-  reply: FastifyReply,
   logger?: FastifyBaseLogger
-): Promise<{ videoId: string; info: Awaited<ReturnType<typeof fetchVideoInfo>> } | null> {
-  const validated = validateVideoRequest(request.url, reply);
-  if (!validated) {
-    return null;
-  }
-
+): Promise<{ videoId: string; info: Awaited<ReturnType<typeof fetchVideoInfo>> }> {
+  const validated = validateVideoRequest(request.url);
   const { url } = validated;
   const info = await fetchVideoInfo(url, logger);
   if (!info) {
-    reply.code(404).send({
-      error: 'Video not found',
-      message: 'Could not fetch video info for the provided URL',
-    });
-    return null;
+    throw new NotFoundError('Could not fetch video info for the provided URL', 'Video not found');
   }
 
-  const videoId = info.id ?? extractVideoId(url) ?? 'unknown';
+  const videoId = info.id ?? extractYouTubeVideoId(url) ?? 'unknown';
   return { videoId, info };
 }
 
 /**
  * Validates request and returns video chapters
+ * @throws ValidationError on invalid input, NotFoundError when video/chapters are not found
  */
 export async function validateAndFetchVideoChapters(
   request: GetVideoInfoRequest,
-  reply: FastifyReply,
   logger?: FastifyBaseLogger
-): Promise<{ videoId: string; chapters: Awaited<ReturnType<typeof fetchVideoChapters>> } | null> {
-  const validated = validateVideoRequest(request.url, reply);
-  if (!validated) {
-    return null;
-  }
-
+): Promise<{ videoId: string; chapters: Awaited<ReturnType<typeof fetchVideoChapters>> }> {
+  const validated = validateVideoRequest(request.url);
   const { url } = validated;
   const data = await fetchYtDlpJson(url, logger);
-  const videoId = data?.id ?? extractVideoId(url) ?? 'unknown';
+  const videoId = data?.id ?? extractYouTubeVideoId(url) ?? 'unknown';
   const chapters = await fetchVideoChapters(url, logger, data);
   if (chapters === null) {
-    reply.code(404).send({
-      error: 'Video not found',
-      message: 'Could not fetch chapters for the provided URL',
-    });
-    return null;
+    throw new NotFoundError('Could not fetch chapters for the provided URL', 'Video not found');
   }
 
   return { videoId, chapters };

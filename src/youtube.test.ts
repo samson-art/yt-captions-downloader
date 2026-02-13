@@ -11,7 +11,7 @@ jest.mock('node:child_process', () => ({
 const execFileMock = execFile as unknown as jest.Mock;
 
 const {
-  extractVideoId,
+  extractYouTubeVideoId,
   detectSubtitleFormat,
   parseSubtitles,
   downloadSubtitles,
@@ -25,27 +25,34 @@ const {
 } = youtube;
 
 describe('youtube', () => {
-  describe('extractVideoId', () => {
+  describe('extractYouTubeVideoId', () => {
     it('should extract video ID from standard YouTube URLs', () => {
-      expect(extractVideoId('https://www.youtube.com/watch?v=dQw4w9WgXcQ')).toBe('dQw4w9WgXcQ');
-      expect(extractVideoId('https://youtube.com/watch?v=dQw4w9WgXcQ')).toBe('dQw4w9WgXcQ');
-      expect(extractVideoId('https://youtu.be/dQw4w9WgXcQ')).toBe('dQw4w9WgXcQ');
-      expect(extractVideoId('https://www.youtube.com/embed/dQw4w9WgXcQ')).toBe('dQw4w9WgXcQ');
+      expect(extractYouTubeVideoId('https://www.youtube.com/watch?v=dQw4w9WgXcQ')).toBe(
+        'dQw4w9WgXcQ'
+      );
+      expect(extractYouTubeVideoId('https://youtube.com/watch?v=dQw4w9WgXcQ')).toBe('dQw4w9WgXcQ');
+      expect(extractYouTubeVideoId('https://youtu.be/dQw4w9WgXcQ')).toBe('dQw4w9WgXcQ');
+      expect(extractYouTubeVideoId('https://www.youtube.com/embed/dQw4w9WgXcQ')).toBe(
+        'dQw4w9WgXcQ'
+      );
     });
 
     it('should extract video ID from URLs with additional parameters', () => {
-      expect(extractVideoId('https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=30s')).toBe(
+      expect(extractYouTubeVideoId('https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=30s')).toBe(
         'dQw4w9WgXcQ'
       );
-      expect(extractVideoId('https://www.youtube.com/watch?feature=share&v=dQw4w9WgXcQ')).toBe(
-        'dQw4w9WgXcQ'
-      );
+      expect(
+        extractYouTubeVideoId('https://www.youtube.com/watch?feature=share&v=dQw4w9WgXcQ')
+      ).toBe('dQw4w9WgXcQ');
     });
 
-    it('should return null for invalid URLs', () => {
-      expect(extractVideoId('not-a-url')).toBeNull();
-      expect(extractVideoId('https://example.com')).toBeNull();
-      expect(extractVideoId('')).toBeNull();
+    it('should return null for non-YouTube URLs (multi-platform fallback semantics)', () => {
+      expect(extractYouTubeVideoId('https://www.tiktok.com/@user/video/123')).toBeNull();
+      expect(extractYouTubeVideoId('https://vimeo.com/123456')).toBeNull();
+      expect(extractYouTubeVideoId('https://twitter.com/user/status/123')).toBeNull();
+      expect(extractYouTubeVideoId('not-a-url')).toBeNull();
+      expect(extractYouTubeVideoId('https://example.com')).toBeNull();
+      expect(extractYouTubeVideoId('')).toBeNull();
     });
   });
 

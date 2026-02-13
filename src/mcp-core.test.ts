@@ -18,7 +18,7 @@ jest.mock('@modelcontextprotocol/sdk/server/mcp.js', () => {
 jest.mock('./youtube.js', () => ({
   detectSubtitleFormat: jest.fn(),
   downloadSubtitles: jest.fn(),
-  extractVideoId: jest.fn(),
+  extractYouTubeVideoId: jest.fn(),
   fetchAvailableSubtitles: jest.fn(),
   fetchVideoChapters: jest.fn(),
   fetchVideoInfo: jest.fn(),
@@ -43,7 +43,7 @@ const fetchVideoInfoMock = youtube.fetchVideoInfo as jest.Mock;
 const fetchVideoChaptersMock = youtube.fetchVideoChapters as jest.Mock;
 const fetchYtDlpJsonMock = youtube.fetchYtDlpJson as jest.Mock;
 const parseSubtitlesMock = youtube.parseSubtitles as jest.Mock;
-const extractVideoIdMock = youtube.extractVideoId as jest.Mock;
+const extractYouTubeVideoIdMock = youtube.extractYouTubeVideoId as jest.Mock;
 
 const normalizeVideoInputMock = validation.normalizeVideoInput as jest.Mock;
 const sanitizeLangMock = validation.sanitizeLang as jest.Mock;
@@ -77,7 +77,7 @@ describe('mcp-core tools', () => {
       downloadSubtitlesMock.mockResolvedValue('subtitle content');
       parseSubtitlesMock.mockReturnValue('abcdefghij'); // 10 chars
       fetchYtDlpJsonMock.mockResolvedValue({ id: 'video123' });
-      extractVideoIdMock.mockReturnValue('video123');
+      extractYouTubeVideoIdMock.mockReturnValue('video123');
 
       const result = await handler(
         {
@@ -172,7 +172,7 @@ describe('mcp-core tools', () => {
       );
       parseSubtitlesMock.mockReturnValue('Auto-detected transcript');
       fetchYtDlpJsonMock.mockResolvedValue({ id: 'video123' });
-      extractVideoIdMock.mockReturnValue('video123');
+      extractYouTubeVideoIdMock.mockReturnValue('video123');
 
       const result = await handler({ url: testUrl, type: 'auto' }, {});
 
@@ -198,7 +198,7 @@ describe('mcp-core tools', () => {
       downloadSubtitlesMock.mockResolvedValue('abcdefghij');
       detectSubtitleFormatMock.mockReturnValue('srt');
       fetchYtDlpJsonMock.mockResolvedValue({ id: 'video123' });
-      extractVideoIdMock.mockReturnValue('video123');
+      extractYouTubeVideoIdMock.mockReturnValue('video123');
 
       const result = await handler(
         { url: testUrl, type: 'official', lang: 'en', response_limit: 6 },
@@ -254,7 +254,7 @@ describe('mcp-core tools', () => {
         auto: ['en'],
       });
       fetchYtDlpJsonMock.mockResolvedValue({ id: 'video123' });
-      extractVideoIdMock.mockReturnValue('video123');
+      extractYouTubeVideoIdMock.mockReturnValue('video123');
 
       const result = await handler({ url: 'video123' }, {});
 
@@ -386,7 +386,7 @@ describe('mcp-core tools', () => {
 
       normalizeVideoInputMock.mockReturnValue(testUrl);
       fetchYtDlpJsonMock.mockResolvedValue({ id: 'video123' });
-      extractVideoIdMock.mockReturnValue('video123');
+      extractYouTubeVideoIdMock.mockReturnValue('video123');
 
       const chapters = [
         { startTime: 0, endTime: 60, title: 'Intro' },
@@ -414,7 +414,7 @@ describe('mcp-core tools', () => {
 
       normalizeVideoInputMock.mockReturnValue(testUrl);
       fetchYtDlpJsonMock.mockResolvedValue({ id: 'video123' });
-      extractVideoIdMock.mockReturnValue('video123');
+      extractYouTubeVideoIdMock.mockReturnValue('video123');
       fetchVideoChaptersMock.mockResolvedValue([]);
 
       const result = await handler({ url: 'video123' }, {});

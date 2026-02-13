@@ -30,6 +30,7 @@ services:
       YT_DLP_TIMEOUT: "60000"
       YT_DLP_JS_RUNTIMES: "node"
       COOKIES_FILE_PATH: "/cookies.txt"
+      # Optional: LOG_LEVEL, YT_DLP_SKIP_VERSION_CHECK, YT_DLP_REQUIRED (see .env.example)
       # Whisper fallback (local container)
       WHISPER_MODE: "local"
       WHISPER_BASE_URL: "http://whisper:9000"
@@ -54,6 +55,8 @@ services:
       YT_DLP_TIMEOUT: "60000"
       YT_DLP_JS_RUNTIMES: "node"
       COOKIES_FILE_PATH: "/cookies.txt"
+      # Optional: MCP_AUTH_TOKEN, MCP_ALLOWED_HOSTS, MCP_ALLOWED_ORIGINS, LOG_LEVEL (see .env.example)
+      # Optional: YT_DLP_SKIP_VERSION_CHECK=1, YT_DLP_REQUIRED=0
       # Whisper fallback (local container)
       WHISPER_MODE: "local"
       WHISPER_BASE_URL: "http://whisper:9000"

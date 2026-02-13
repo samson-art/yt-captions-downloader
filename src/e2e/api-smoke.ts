@@ -173,9 +173,9 @@ async function waitForApiReady(baseUrl: string, timeoutMs: number): Promise<void
     }
 
     try {
-      const response = await fetchImpl(baseUrl, { method: 'GET' });
-      // Any HTTP status means Fastify is up and listening
-      if (response) {
+      const healthUrl = `${baseUrl.replace(/\/$/, '')}/health`;
+      const response = await fetchImpl(healthUrl, { method: 'GET' });
+      if (response?.ok) {
         return;
       }
     } catch {

@@ -19,7 +19,10 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "test:e2e:api": "node dist/e2e/api-smoke.js"
+    "test:e2e:api": "node dist/e2e/api-smoke.js",
+    "load-test": "k6 run load/health.js",
+    "load-test:subtitles": "k6 run load/subtitles.js",
+    "load-test:mixed": "k6 run load/mixed.js"
   },
   "keywords": [
     "youtube",

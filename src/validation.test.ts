@@ -1,3 +1,4 @@
+import { NotFoundError, ValidationError } from './errors.js';
 import {
   isValidYouTubeUrl,
   isValidSupportedUrl,
@@ -16,24 +17,6 @@ jest.mock('./whisper.js', () => ({
   getWhisperConfig: jest.fn(() => ({ mode: 'off' })),
   transcribeWithWhisper: jest.fn(),
 }));
-
-function createReplyMock() {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-  return {
-    statusCode: 200,
-    payload: undefined as unknown,
-    code(this: any, statusCode: number) {
-      this.statusCode = statusCode;
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-      return this;
-    },
-    send(this: any, payload: unknown) {
-      this.payload = payload;
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-      return this;
-    },
-  } as any;
-}
 
 afterEach(() => {
   jest.restoreAllMocks();
@@ -241,92 +224,95 @@ describe('validation', () => {
   });
 
   describe('validateAndDownloadSubtitles', () => {
-    it('should return 400 for invalid YouTube URL', async () => {
-      const reply = createReplyMock();
+    it('should throw ValidationError for invalid YouTube URL', async () => {
       const downloadSpy = jest.spyOn(youtube, 'downloadSubtitles').mockResolvedValue(null);
 
-      const result = await validateAndDownloadSubtitles(
-        { url: 'https://unsupported.example.com/video', type: 'auto', lang: 'en' } as any,
-        reply
-      );
+      await expect(
+        validateAndDownloadSubtitles({
+          url: 'https://unsupported.example.com/video',
+          type: 'auto',
+          lang: 'en',
+        } as any)
+      ).rejects.toThrow(ValidationError);
 
-      expect(result).toBeNull();
-      expect(reply.statusCode).toBe(400);
-      expect(reply.payload).toMatchObject({
-        error: 'Invalid video URL',
-      });
+      await expect(
+        validateAndDownloadSubtitles({
+          url: 'https://unsupported.example.com/video',
+          type: 'auto',
+          lang: 'en',
+        } as any)
+      ).rejects.toMatchObject({ errorLabel: 'Invalid video URL' });
       expect(downloadSpy).not.toHaveBeenCalled();
     });
 
-    it('should return 400 when sanitized video ID is invalid', async () => {
-      const reply = createReplyMock();
+    it('should throw ValidationError when sanitized video ID is invalid', async () => {
       const downloadSpy = jest.spyOn(youtube, 'downloadSubtitles').mockResolvedValue(null);
 
-      const result = await validateAndDownloadSubtitles(
-        { url: 'https://evil.com/not-allowed', type: 'auto', lang: 'en' } as any,
-        reply
-      );
-
-      expect(result).toBeNull();
-      expect(reply.statusCode).toBe(400);
-      expect(reply.payload).toMatchObject({
-        error: 'Invalid video URL',
-      });
+      await expect(
+        validateAndDownloadSubtitles({
+          url: 'https://evil.com/not-allowed',
+          type: 'auto',
+          lang: 'en',
+        } as any)
+      ).rejects.toThrow(ValidationError);
+      await expect(
+        validateAndDownloadSubtitles({
+          url: 'https://evil.com/not-allowed',
+          type: 'auto',
+          lang: 'en',
+        } as any)
+      ).rejects.toMatchObject({ errorLabel: 'Invalid video URL' });
       expect(downloadSpy).not.toHaveBeenCalled();
     });
 
-    it('should return 400 when language code is invalid', async () => {
-      const reply = createReplyMock();
+    it('should throw ValidationError when language code is invalid', async () => {
       const downloadSpy = jest.spyOn(youtube, 'downloadSubtitles').mockResolvedValue(null);
 
-      const result = await validateAndDownloadSubtitles(
-        {
+      await expect(
+        validateAndDownloadSubtitles({
           url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
           type: 'auto',
           lang: 'invalid lang',
-        } as any,
-        reply
-      );
-
-      expect(result).toBeNull();
-      expect(reply.statusCode).toBe(400);
-      expect(reply.payload).toMatchObject({
-        error: 'Invalid language code',
-      });
+        } as any)
+      ).rejects.toThrow(ValidationError);
+      await expect(
+        validateAndDownloadSubtitles({
+          url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+          type: 'auto',
+          lang: 'invalid lang',
+        } as any)
+      ).rejects.toMatchObject({ errorLabel: 'Invalid language code' });
       expect(downloadSpy).not.toHaveBeenCalled();
     });
 
-    it('should return 404 when subtitles are not found', async () => {
-      const reply = createReplyMock();
-
+    it('should throw NotFoundError when subtitles are not found', async () => {
       jest.spyOn(youtube, 'downloadSubtitles').mockResolvedValue(null);
 
-      const result = await validateAndDownloadSubtitles(
-        { url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', type: 'auto', lang: 'en' } as any,
-        reply
-      );
-
-      expect(result).toBeNull();
-      expect(reply.statusCode).toBe(404);
-      expect(reply.payload).toMatchObject({
-        error: 'Subtitles not found',
-      });
+      await expect(
+        validateAndDownloadSubtitles({
+          url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+          type: 'auto',
+          lang: 'en',
+        } as any)
+      ).rejects.toThrow(NotFoundError);
+      await expect(
+        validateAndDownloadSubtitles({
+          url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+          type: 'auto',
+          lang: 'en',
+        } as any)
+      ).rejects.toMatchObject({ errorLabel: 'Subtitles not found' });
     });
 
     it('should return subtitles data on success', async () => {
-      const reply = createReplyMock();
-
       jest.spyOn(youtube, 'downloadSubtitles').mockResolvedValue('subtitle content');
       jest.spyOn(youtube, 'fetchYtDlpJson').mockResolvedValue({ id: 'dQw4w9WgXcQ' });
 
-      const result = await validateAndDownloadSubtitles(
-        {
-          url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-          type: 'official',
-          lang: ' en ',
-        } as any,
-        reply
-      );
+      const result = await validateAndDownloadSubtitles({
+        url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        type: 'official',
+        lang: ' en ',
+      } as any);
 
       expect(result).toEqual({
         videoId: 'dQw4w9WgXcQ',
@@ -335,22 +321,20 @@ describe('validation', () => {
         subtitlesContent: 'subtitle content',
         source: 'youtube',
       });
-      expect(reply.statusCode).toBe(200);
-      expect(reply.payload).toBeUndefined();
     });
 
     it('should return subtitles from Whisper fallback when YouTube has none', async () => {
-      const reply = createReplyMock();
       jest.spyOn(youtube, 'downloadSubtitles').mockResolvedValue(null);
       (whisper.getWhisperConfig as jest.Mock).mockReturnValue({ mode: 'local' });
       (whisper.transcribeWithWhisper as jest.Mock).mockResolvedValue(
         '1\n00:00:00,000 --> 00:00:01,000\nWhisper transcript'
       );
 
-      const result = await validateAndDownloadSubtitles(
-        { url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', type: 'auto', lang: 'en' } as any,
-        reply
-      );
+      const result = await validateAndDownloadSubtitles({
+        url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        type: 'auto',
+        lang: 'en',
+      } as any);
 
       expect(result).toEqual({
         videoId: 'dQw4w9WgXcQ',
@@ -359,7 +343,6 @@ describe('validation', () => {
         subtitlesContent: '1\n00:00:00,000 --> 00:00:01,000\nWhisper transcript',
         source: 'whisper',
       });
-      expect(reply.statusCode).toBe(200);
       expect(whisper.transcribeWithWhisper).toHaveBeenCalledWith(
         'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
         'en',
@@ -368,33 +351,38 @@ describe('validation', () => {
       );
     });
 
-    it('should return 404 when Whisper fallback is enabled but returns null', async () => {
-      const reply = createReplyMock();
+    it('should throw NotFoundError when Whisper fallback is enabled but returns null', async () => {
       jest.spyOn(youtube, 'downloadSubtitles').mockResolvedValue(null);
       (whisper.getWhisperConfig as jest.Mock).mockReturnValue({ mode: 'local' });
       (whisper.transcribeWithWhisper as jest.Mock).mockResolvedValue(null);
 
-      const result = await validateAndDownloadSubtitles(
-        { url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', type: 'auto', lang: 'en' } as any,
-        reply
-      );
-
-      expect(result).toBeNull();
-      expect(reply.statusCode).toBe(404);
-      expect(reply.payload).toMatchObject({ error: 'Subtitles not found' });
+      await expect(
+        validateAndDownloadSubtitles({
+          url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+          type: 'auto',
+          lang: 'en',
+        } as any)
+      ).rejects.toThrow(NotFoundError);
+      await expect(
+        validateAndDownloadSubtitles({
+          url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+          type: 'auto',
+          lang: 'en',
+        } as any)
+      ).rejects.toMatchObject({ errorLabel: 'Subtitles not found' });
     });
 
     it('should return subtitles data on success for non-YouTube URL (e.g. Vimeo)', async () => {
-      const reply = createReplyMock();
       const vimeoUrl = 'https://vimeo.com/123';
 
       jest.spyOn(youtube, 'downloadSubtitles').mockResolvedValue('vimeo subtitle content');
       jest.spyOn(youtube, 'fetchYtDlpJson').mockResolvedValue({ id: '123' });
 
-      const result = await validateAndDownloadSubtitles(
-        { url: vimeoUrl, type: 'auto', lang: 'en' } as any,
-        reply
-      );
+      const result = await validateAndDownloadSubtitles({
+        url: vimeoUrl,
+        type: 'auto',
+        lang: 'en',
+      } as any);
 
       expect(result).toEqual({
         videoId: '123',
@@ -403,88 +391,66 @@ describe('validation', () => {
         subtitlesContent: 'vimeo subtitle content',
         source: 'youtube',
       });
-      expect(reply.statusCode).toBe(200);
       expect(youtube.downloadSubtitles).toHaveBeenCalledWith(vimeoUrl, 'auto', 'en', undefined);
     });
   });
 
   describe('validateAndFetchAvailableSubtitles', () => {
-    it('should return 400 for invalid YouTube URL', async () => {
-      const reply = createReplyMock();
+    it('should throw ValidationError for invalid YouTube URL', async () => {
       const fetchSpy = jest.spyOn(youtube, 'fetchYtDlpJson').mockResolvedValue(null as any);
 
-      const result = await validateAndFetchAvailableSubtitles(
-        { url: 'https://unsupported.example.com/video' } as any,
-        reply
-      );
-
-      expect(result).toBeNull();
-      expect(reply.statusCode).toBe(400);
-      expect(reply.payload).toMatchObject({
-        error: 'Invalid video URL',
-      });
+      await expect(
+        validateAndFetchAvailableSubtitles({ url: 'https://unsupported.example.com/video' } as any)
+      ).rejects.toThrow(ValidationError);
+      await expect(
+        validateAndFetchAvailableSubtitles({ url: 'https://unsupported.example.com/video' } as any)
+      ).rejects.toMatchObject({ errorLabel: 'Invalid video URL' });
       expect(fetchSpy).not.toHaveBeenCalled();
     });
 
-    it('should return 400 when sanitized video ID is invalid', async () => {
-      const reply = createReplyMock();
+    it('should throw ValidationError when sanitized video ID is invalid', async () => {
       const fetchSpy = jest.spyOn(youtube, 'fetchYtDlpJson').mockResolvedValue(null as any);
 
-      const result = await validateAndFetchAvailableSubtitles(
-        { url: 'https://evil.com/not-allowed' } as any,
-        reply
-      );
-
-      expect(result).toBeNull();
-      expect(reply.statusCode).toBe(400);
-      expect(reply.payload).toMatchObject({
-        error: 'Invalid video URL',
-      });
+      await expect(
+        validateAndFetchAvailableSubtitles({ url: 'https://evil.com/not-allowed' } as any)
+      ).rejects.toThrow(ValidationError);
       expect(fetchSpy).not.toHaveBeenCalled();
     });
 
-    it('should return 404 when available subtitles are not found', async () => {
-      const reply = createReplyMock();
-
+    it('should throw NotFoundError when available subtitles are not found', async () => {
       jest.spyOn(youtube, 'fetchYtDlpJson').mockResolvedValue(null);
 
-      const result = await validateAndFetchAvailableSubtitles(
-        { url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' } as any,
-        reply
-      );
-
-      expect(result).toBeNull();
-      expect(reply.statusCode).toBe(404);
-      expect(reply.payload).toMatchObject({
-        error: 'Video not found',
-      });
+      await expect(
+        validateAndFetchAvailableSubtitles({
+          url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        } as any)
+      ).rejects.toThrow(NotFoundError);
+      await expect(
+        validateAndFetchAvailableSubtitles({
+          url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        } as any)
+      ).rejects.toMatchObject({ errorLabel: 'Video not found' });
     });
 
     it('should return available subtitles data on success', async () => {
-      const reply = createReplyMock();
-
       jest.spyOn(youtube, 'fetchYtDlpJson').mockResolvedValue({
         id: 'dQw4w9WgXcQ',
         subtitles: { en: [], ru: [] },
         automatic_captions: { en: [] },
       });
 
-      const result = await validateAndFetchAvailableSubtitles(
-        { url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' } as any,
-        reply
-      );
+      const result = await validateAndFetchAvailableSubtitles({
+        url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      } as any);
 
       expect(result).toEqual({
         videoId: 'dQw4w9WgXcQ',
         official: ['en', 'ru'],
         auto: ['en'],
       });
-      expect(reply.statusCode).toBe(200);
-      expect(reply.payload).toBeUndefined();
     });
 
     it('should return available subtitles data on success for non-YouTube URL (e.g. Vimeo)', async () => {
-      const reply = createReplyMock();
       const vimeoUrl = 'https://vimeo.com/123';
 
       jest.spyOn(youtube, 'fetchYtDlpJson').mockResolvedValue({
@@ -493,50 +459,46 @@ describe('validation', () => {
         automatic_captions: {},
       });
 
-      const result = await validateAndFetchAvailableSubtitles({ url: vimeoUrl } as any, reply);
+      const result = await validateAndFetchAvailableSubtitles({ url: vimeoUrl } as any);
 
       expect(result).toEqual({
         videoId: '123',
         official: ['en'],
         auto: [],
       });
-      expect(reply.statusCode).toBe(200);
       expect(youtube.fetchYtDlpJson).toHaveBeenCalledWith(vimeoUrl, undefined);
     });
   });
 
   describe('validateAndFetchVideoInfo', () => {
-    it('should return 400 for invalid YouTube URL', async () => {
-      const reply = createReplyMock();
+    it('should throw ValidationError for invalid YouTube URL', async () => {
       const fetchSpy = jest.spyOn(youtube, 'fetchVideoInfo').mockResolvedValue(null as any);
 
-      const result = await validateAndFetchVideoInfo(
-        { url: 'https://unsupported.example.com/video' } as any,
-        reply
-      );
-
-      expect(result).toBeNull();
-      expect(reply.statusCode).toBe(400);
-      expect(reply.payload).toMatchObject({ error: 'Invalid video URL' });
+      await expect(
+        validateAndFetchVideoInfo({ url: 'https://unsupported.example.com/video' } as any)
+      ).rejects.toThrow(ValidationError);
+      await expect(
+        validateAndFetchVideoInfo({ url: 'https://unsupported.example.com/video' } as any)
+      ).rejects.toMatchObject({ errorLabel: 'Invalid video URL' });
       expect(fetchSpy).not.toHaveBeenCalled();
     });
 
-    it('should return 404 when video info is not found', async () => {
-      const reply = createReplyMock();
+    it('should throw NotFoundError when video info is not found', async () => {
       jest.spyOn(youtube, 'fetchVideoInfo').mockResolvedValue(null);
 
-      const result = await validateAndFetchVideoInfo(
-        { url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' } as any,
-        reply
-      );
-
-      expect(result).toBeNull();
-      expect(reply.statusCode).toBe(404);
-      expect(reply.payload).toMatchObject({ error: 'Video not found' });
+      await expect(
+        validateAndFetchVideoInfo({
+          url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        } as any)
+      ).rejects.toThrow(NotFoundError);
+      await expect(
+        validateAndFetchVideoInfo({
+          url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        } as any)
+      ).rejects.toMatchObject({ errorLabel: 'Video not found' });
     });
 
     it('should return video info on success', async () => {
-      const reply = createReplyMock();
       const mockInfo = {
         id: 'dQw4w9WgXcQ',
         title: 'Test Video',
@@ -545,17 +507,14 @@ describe('validation', () => {
       } as any;
       jest.spyOn(youtube, 'fetchVideoInfo').mockResolvedValue(mockInfo);
 
-      const result = await validateAndFetchVideoInfo(
-        { url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' } as any,
-        reply
-      );
+      const result = await validateAndFetchVideoInfo({
+        url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      } as any);
 
       expect(result).toEqual({ videoId: 'dQw4w9WgXcQ', info: mockInfo });
-      expect(reply.statusCode).toBe(200);
     });
 
     it('should return video info on success for non-YouTube URL (e.g. Vimeo)', async () => {
-      const reply = createReplyMock();
       const vimeoUrl = 'https://vimeo.com/123';
       const mockInfo = {
         id: '123',
@@ -565,79 +524,71 @@ describe('validation', () => {
       } as any;
       jest.spyOn(youtube, 'fetchVideoInfo').mockResolvedValue(mockInfo);
 
-      const result = await validateAndFetchVideoInfo({ url: vimeoUrl } as any, reply);
+      const result = await validateAndFetchVideoInfo({ url: vimeoUrl } as any);
 
       expect(result).toEqual({ videoId: '123', info: mockInfo });
-      expect(reply.statusCode).toBe(200);
       expect(youtube.fetchVideoInfo).toHaveBeenCalledWith(vimeoUrl, undefined);
     });
   });
 
   describe('validateAndFetchVideoChapters', () => {
-    it('should return 400 for invalid YouTube URL', async () => {
-      const reply = createReplyMock();
+    it('should throw ValidationError for invalid YouTube URL', async () => {
       const fetchSpy = jest.spyOn(youtube, 'fetchVideoChapters').mockResolvedValue([]);
 
-      const result = await validateAndFetchVideoChapters(
-        { url: 'https://unsupported.example.com/video' } as any,
-        reply
-      );
-
-      expect(result).toBeNull();
-      expect(reply.statusCode).toBe(400);
-      expect(reply.payload).toMatchObject({ error: 'Invalid video URL' });
+      await expect(
+        validateAndFetchVideoChapters({ url: 'https://unsupported.example.com/video' } as any)
+      ).rejects.toThrow(ValidationError);
+      await expect(
+        validateAndFetchVideoChapters({ url: 'https://unsupported.example.com/video' } as any)
+      ).rejects.toMatchObject({ errorLabel: 'Invalid video URL' });
       expect(fetchSpy).not.toHaveBeenCalled();
     });
 
-    it('should return 404 when video is not found', async () => {
-      const reply = createReplyMock();
+    it('should throw NotFoundError when video is not found', async () => {
+      jest.spyOn(youtube, 'fetchYtDlpJson').mockResolvedValue({ id: 'dQw4w9WgXcQ' });
       jest.spyOn(youtube, 'fetchVideoChapters').mockResolvedValue(null);
 
-      const result = await validateAndFetchVideoChapters(
-        { url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' } as any,
-        reply
-      );
-
-      expect(result).toBeNull();
-      expect(reply.statusCode).toBe(404);
-      expect(reply.payload).toMatchObject({ error: 'Video not found' });
+      await expect(
+        validateAndFetchVideoChapters({
+          url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        } as any)
+      ).rejects.toThrow(NotFoundError);
+      await expect(
+        validateAndFetchVideoChapters({
+          url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        } as any)
+      ).rejects.toMatchObject({ errorLabel: 'Video not found' });
     });
 
     it('should return chapters on success', async () => {
-      const reply = createReplyMock();
       const mockChapters = [
         { startTime: 0, endTime: 60, title: 'Intro' },
         { startTime: 60, endTime: 120, title: 'Main' },
       ];
       jest.spyOn(youtube, 'fetchVideoChapters').mockResolvedValue(mockChapters);
 
-      const result = await validateAndFetchVideoChapters(
-        { url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' } as any,
-        reply
-      );
+      const result = await validateAndFetchVideoChapters({
+        url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      } as any);
 
       expect(result).toEqual({ videoId: 'dQw4w9WgXcQ', chapters: mockChapters });
-      expect(reply.statusCode).toBe(200);
     });
 
     it('should return chapters on success for non-YouTube URL (e.g. Vimeo)', async () => {
-      const reply = createReplyMock();
       const vimeoUrl = 'https://vimeo.com/123';
       const mockChapters: Array<{ startTime: number; endTime: number; title: string }> = [];
       jest.spyOn(youtube, 'fetchYtDlpJson').mockResolvedValue({ id: '123' });
       jest.spyOn(youtube, 'fetchVideoChapters').mockResolvedValue(mockChapters);
 
-      const result = await validateAndFetchVideoChapters({ url: vimeoUrl } as any, reply);
+      const result = await validateAndFetchVideoChapters({ url: vimeoUrl } as any);
 
       expect(result).toEqual({ videoId: '123', chapters: mockChapters });
-      expect(reply.statusCode).toBe(200);
       expect(youtube.fetchVideoChapters).toHaveBeenCalledWith(vimeoUrl, undefined, {
         id: '123',
       });
     });
 
     it('should call fetchYtDlpJson once and pass data to fetchVideoChapters', async () => {
-      const reply = createReplyMock();
       const url = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
       const mockChapters = [
         { startTime: 0, endTime: 60, title: 'Intro' },
@@ -649,7 +600,7 @@ describe('validation', () => {
         .spyOn(youtube, 'fetchVideoChapters')
         .mockResolvedValue(mockChapters);
 
-      const result = await validateAndFetchVideoChapters({ url } as any, reply);
+      const result = await validateAndFetchVideoChapters({ url } as any);
 
       expect(result).toEqual({ videoId: 'dQw4w9WgXcQ', chapters: mockChapters });
       expect(fetchJsonSpy).toHaveBeenCalledTimes(1);

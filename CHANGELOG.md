@@ -7,9 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.5] - 2026-02-13
+
+### Added
+
+- **REST/MCP error types:** `src/errors.ts` exports `HttpError`, `ValidationError`, and `NotFoundError` with status codes and error labels. Validation helpers throw these; REST global error handler maps them to 4xx/5xx and consistent JSON (`error`, `message`).
+- **MCP HTTP auth module:** `src/mcp-auth.ts` provides `ensureAuth(request, reply, authToken)` and `getHeaderValue()`; MCP HTTP server uses them when `MCP_AUTH_TOKEN` is set. Token comparison is timing-safe to prevent timing attacks.
+- **Unit tests:** `mcp-auth.test.ts` for `getHeaderValue` and `ensureAuth` (no auth, missing/ malformed Bearer, wrong token, correct token). `mcp-http.test.ts` for 401 on `/mcp` when auth required and no/ invalid header, and that `/health` remains allowed without auth when token is set.
+- **Load testing:** `docs/load-testing.md` documents k6-based load tests for the REST API (health, subtitles, mixed). Make targets: `load-test`, `load-test-health`, `load-test-subtitles`, `load-test-mixed` (Docker k6); npm scripts: `load-test`, `load-test:subtitles`, `load-test:mixed`. Configurable via `LOAD_BASE_URL` / `BASE_URL` and `RATE_LIMIT_MAX` for throughput.
+
 ### Changed
 
+- **MCP:** Shared logic for subtitle fetch and Whisper fallback is now in a private `fetchSubtitlesContent(resolved, log)` in `mcp-core.ts`. Tools `get_transcript` and `get_raw_subtitles` call it and only handle final processing (parse + paginate vs raw + paginate). Removes duplication of `resolveSubtitleArgs`, `downloadSubtitles`, and Whisper fallback between the two tools.
 - **Docker: single Dockerfile with shared base.** One Dockerfile now builds both REST API and MCP images via multi-stage build. Stages: `builder` (Node, npm ci, build) → `base` (node, python3, pip, curl, unzip, ffmpeg, Deno, yt-dlp -U, YT_DLP_JS_RUNTIMES) → `api` (REST, port 3000) and `mcp` (MCP, port 4200). Build with `docker build -f Dockerfile --target api .` or `--target mcp .`. `Dockerfile.mcp` removed; Makefile targets `docker-build-api` and `docker-build-mcp` (and buildx variants) use the same Dockerfile with the appropriate target. README and `docs/quick-start.mcp.md` updated to use `--target api` / `--target mcp`.
+
+### Security
+
+- **MCP HTTP auth:** Bearer token validation uses `crypto.timingSafeEqual` so comparison time does not depend on the token value.
 
 ## [0.4.4] - 2026-02-13
 

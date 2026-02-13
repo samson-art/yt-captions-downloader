@@ -1,11 +1,12 @@
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
-import { randomUUID, timingSafeEqual } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import {
   SSEServerTransport,
   type SSEServerTransportOptions,
 } from '@modelcontextprotocol/sdk/server/sse.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { ensureAuth, getHeaderValue } from './mcp-auth.js';
 import { createMcpServer } from './mcp-core.js';
 import { checkYtDlpAtStartup } from './yt-dlp-check.js';
 
@@ -40,6 +41,10 @@ const SESSION_CLEANUP_INTERVAL_MS = process.env.MCP_SESSION_CLEANUP_INTERVAL_MS
 app.register(rateLimit, {
   max: process.env.MCP_RATE_LIMIT_MAX ? Number.parseInt(process.env.MCP_RATE_LIMIT_MAX, 10) : 100,
   timeWindow: process.env.MCP_RATE_LIMIT_TIME_WINDOW || '1 minute',
+});
+
+app.get('/health', async (_request, reply) => {
+  return reply.code(200).send({ status: 'ok' });
 });
 
 async function handleStreamablePost(
@@ -110,7 +115,7 @@ app.route({
   method: ['GET', 'POST', 'DELETE'],
   url: '/mcp',
   handler: async (request, reply) => {
-    if (!ensureAuth(request, reply)) {
+    if (!ensureAuth(request, reply, authToken)) {
       return;
     }
 
@@ -127,7 +132,7 @@ app.route({
 });
 
 app.get('/sse', async (request, reply) => {
-  if (!ensureAuth(request, reply)) {
+  if (!ensureAuth(request, reply, authToken)) {
     return;
   }
 
@@ -148,7 +153,7 @@ app.get('/sse', async (request, reply) => {
 });
 
 app.post('/message', async (request, reply) => {
-  if (!ensureAuth(request, reply)) {
+  if (!ensureAuth(request, reply, authToken)) {
     return;
   }
 
@@ -169,16 +174,21 @@ app.post('/message', async (request, reply) => {
   await session.transport.handlePostMessage(request.raw, reply.raw, request.body);
 });
 
-function cleanupExpiredSessions() {
+/**
+ * Removes sessions older than TTL. Exported for testing.
+ * @param overrideTtlMs - optional TTL override for tests (default: SESSION_TTL_MS)
+ */
+export function cleanupExpiredSessions(overrideTtlMs?: number): void {
+  const ttl = overrideTtlMs ?? SESSION_TTL_MS;
   const now = Date.now();
   for (const [id, session] of streamableSessions.entries()) {
-    if (now - session.createdAt > SESSION_TTL_MS) {
+    if (now - session.createdAt > ttl) {
       streamableSessions.delete(id);
       app.log.debug({ sessionId: id }, 'Removed expired streamable session');
     }
   }
   for (const [id, session] of sseSessions.entries()) {
-    if (now - session.createdAt > SESSION_TTL_MS) {
+    if (now - session.createdAt > ttl) {
       sseSessions.delete(id);
       app.log.debug({ sessionId: id }, 'Removed expired SSE session');
     }
@@ -245,42 +255,6 @@ process.on('uncaughtException', (error) => {
   void shutdown('uncaughtException');
 });
 
-function ensureAuth(request: FastifyRequest, reply: FastifyReply): boolean {
-  if (!authToken) {
-    return true;
-  }
-
-  const header = getHeaderValue(request.headers.authorization);
-  if (!header) {
-    reply.code(401).send({ error: 'Unauthorized' });
-    return false;
-  }
-
-  const [scheme, token] = header.split(' ');
-  if (scheme?.toLowerCase() !== 'bearer' || !token) {
-    reply.code(401).send({ error: 'Unauthorized' });
-    return false;
-  }
-
-  if (token.length !== authToken.length) {
-    reply.code(401).send({ error: 'Unauthorized' });
-    return false;
-  }
-
-  const tokenBuf = Buffer.from(token, 'utf8');
-  const expectedBuf = Buffer.from(authToken, 'utf8');
-  if (!timingSafeEqual(tokenBuf, expectedBuf)) {
-    reply.code(401).send({ error: 'Unauthorized' });
-    return false;
-  }
-
-  return true;
-}
-
-function getHeaderValue(value: string | string[] | undefined): string | undefined {
-  return Array.isArray(value) ? value[0] : value;
-}
-
 function isInitializeRequest(body: unknown): body is { method: string } {
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
     return false;
@@ -316,4 +290,13 @@ function getSseOptions(): SSEServerTransportOptions | undefined {
   };
 }
 
-void start();
+/** Session maps exported for testing */
+export { streamableSessions, sseSessions };
+
+/** App exported for testing */
+export { app };
+
+// Skip start when running under Jest (tests use app.inject())
+if (!process.env.JEST_WORKER_ID) {
+  void start();
+}

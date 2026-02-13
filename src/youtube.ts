@@ -89,9 +89,11 @@ export type AvailableSubtitles = {
 };
 
 /**
- * Extracts video ID from YouTube URL
+ * Extracts YouTube video ID from a URL.
+ * Used as a fallback for display/logging when yt-dlp does not return an id.
+ * Only supports YouTube URLs; returns null for other platforms (TikTok, Vimeo, etc.).
  */
-export function extractVideoId(url: string): string | null {
+export function extractYouTubeVideoId(url: string): string | null {
   const patterns = [
     /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
     /youtube\.com\/watch\?.*v=([^&\n?#]+)/,
@@ -106,6 +108,9 @@ export function extractVideoId(url: string): string | null {
 
   return null;
 }
+
+/** @deprecated Use extractYouTubeVideoId. Kept for backward compatibility. */
+export const extractVideoId = extractYouTubeVideoId;
 
 /**
  * Downloads subtitles using yt-dlp

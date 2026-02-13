@@ -5,6 +5,7 @@ import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import { Type } from '@sinclair/typebox';
+import { HttpError } from './errors.js';
 import { parseSubtitles, detectSubtitleFormat } from './youtube.js';
 import {
   GetAvailableSubtitlesRequest,
@@ -79,10 +80,16 @@ const fastify = Fastify({
 }).withTypeProvider<TypeBoxTypeProvider>();
 
 fastify.setErrorHandler((error, _request, reply) => {
-  fastify.log.error(error);
+  const statusCode = error instanceof HttpError ? error.statusCode : 500;
   const message = error instanceof Error ? error.message : 'Unknown error occurred';
-  return reply.code(500).send({
-    error: 'Internal server error',
+  const errorLabel = error instanceof HttpError ? error.errorLabel : 'Internal server error';
+  if (statusCode >= 500) {
+    fastify.log.error(error);
+  } else {
+    fastify.log.warn({ err: error }, message);
+  }
+  return reply.code(statusCode).send({
+    error: errorLabel,
     message,
   });
 });
@@ -149,11 +156,7 @@ fastify.register(async (instance) => {
     async (request, reply) => {
       const body = request.body as GetSubtitlesRequest;
 
-      const result = await validateAndDownloadSubtitles(body, reply, instance.log);
-      if (!result) {
-        return; // Response already sent from validateAndDownloadSubtitles
-      }
-
+      const result = await validateAndDownloadSubtitles(body, instance.log);
       const { videoId, type, lang, subtitlesContent, source } = result;
 
       let plainText: string;
@@ -192,11 +195,7 @@ fastify.register(async (instance) => {
     async (request, reply) => {
       const body = request.body as GetSubtitlesRequest;
 
-      const result = await validateAndDownloadSubtitles(body, reply, instance.log);
-      if (!result) {
-        return; // Response already sent from validateAndDownloadSubtitles
-      }
-
+      const result = await validateAndDownloadSubtitles(body, instance.log);
       const { videoId, type, lang, subtitlesContent, source } = result;
 
       const format = detectSubtitleFormat(subtitlesContent);
@@ -231,11 +230,7 @@ fastify.register(async (instance) => {
     async (request, reply) => {
       const body = request.body as GetAvailableSubtitlesRequest;
 
-      const result = await validateAndFetchAvailableSubtitles(body, reply, instance.log);
-      if (!result) {
-        return; // Response already sent from validateAndFetchAvailableSubtitles
-      }
-
+      const result = await validateAndFetchAvailableSubtitles(body, instance.log);
       const { videoId, official, auto } = result;
 
       return reply.send({
@@ -264,11 +259,7 @@ fastify.register(async (instance) => {
     async (request, reply) => {
       const body = request.body as GetVideoInfoRequest;
 
-      const result = await validateAndFetchVideoInfo(body, reply, instance.log);
-      if (!result) {
-        return;
-      }
-
+      const result = await validateAndFetchVideoInfo(body, instance.log);
       const { videoId, info } = result;
 
       return reply.send({
@@ -296,11 +287,7 @@ fastify.register(async (instance) => {
     async (request, reply) => {
       const body = request.body as GetVideoInfoRequest;
 
-      const result = await validateAndFetchVideoChapters(body, reply, instance.log);
-      if (!result) {
-        return;
-      }
-
+      const result = await validateAndFetchVideoChapters(body, instance.log);
       const { videoId, chapters } = result;
 
       return reply.send({

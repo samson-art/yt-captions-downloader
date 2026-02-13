@@ -1,0 +1,146 @@
+import { app, cleanupExpiredSessions, streamableSessions, sseSessions } from './mcp-http.js';
+
+jest.mock('./yt-dlp-check.js', () => ({
+  checkYtDlpAtStartup: jest.fn().mockResolvedValue(undefined),
+}));
+
+jest.mock('./mcp-core.js', () => ({
+  createMcpServer: jest.fn().mockReturnValue({
+    connect: jest.fn().mockResolvedValue(undefined),
+  }),
+}));
+
+describe('mcp-http', () => {
+  afterEach(() => {
+    streamableSessions.clear();
+    sseSessions.clear();
+    jest.clearAllMocks();
+  });
+
+  describe('cleanupExpiredSessions', () => {
+    it('removes streamable sessions older than TTL', () => {
+      const ttlMs = 1000;
+      const oldSession = {
+        server: {} as any,
+        transport: {} as any,
+        createdAt: Date.now() - ttlMs - 100,
+      };
+      const freshSession = {
+        server: {} as any,
+        transport: {} as any,
+        createdAt: Date.now() - 100,
+      };
+      streamableSessions.set('expired-id', oldSession);
+      streamableSessions.set('fresh-id', freshSession);
+
+      cleanupExpiredSessions(ttlMs);
+
+      expect(streamableSessions.has('expired-id')).toBe(false);
+      expect(streamableSessions.has('fresh-id')).toBe(true);
+    });
+
+    it('removes SSE sessions older than TTL', () => {
+      const ttlMs = 500;
+      const oldSession = {
+        server: {} as any,
+        transport: {} as any,
+        createdAt: Date.now() - ttlMs - 50,
+      };
+      sseSessions.set('expired-sse', oldSession);
+
+      cleanupExpiredSessions(ttlMs);
+
+      expect(sseSessions.has('expired-sse')).toBe(false);
+    });
+
+    it('leaves sessions within TTL', () => {
+      const ttlMs = 5000;
+      const session = {
+        server: {} as any,
+        transport: {} as any,
+        createdAt: Date.now() - 100,
+      };
+      streamableSessions.set('within-ttl', session);
+
+      cleanupExpiredSessions(ttlMs);
+
+      expect(streamableSessions.has('within-ttl')).toBe(true);
+    });
+  });
+
+  describe('GET /health', () => {
+    it('returns 200 with status ok', async () => {
+      await app.ready();
+      const response = await app.inject({
+        method: 'GET',
+        url: '/health',
+      });
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ status: 'ok' });
+    });
+  });
+
+  describe('auth', () => {
+    const originalEnv = process.env;
+
+    beforeEach(() => {
+      jest.resetModules();
+      process.env = { ...originalEnv };
+    });
+
+    afterEach(() => {
+      process.env = originalEnv;
+    });
+
+    it('returns 401 for /mcp when MCP_AUTH_TOKEN set and no Authorization header', async () => {
+      process.env.MCP_AUTH_TOKEN = 'test-secret';
+      const { app: appWithAuth } = await import('./mcp-http.js');
+      await appWithAuth.ready();
+
+      const response = await appWithAuth.inject({
+        method: 'GET',
+        url: '/mcp',
+        headers: {},
+      });
+
+      expect(response.statusCode).toBe(401);
+      expect(response.json()).toEqual({ error: 'Unauthorized' });
+    });
+
+    it('returns 401 for /mcp when token is wrong', async () => {
+      process.env.MCP_AUTH_TOKEN = 'test-secret';
+      const { app: appWithAuth } = await import('./mcp-http.js');
+      await appWithAuth.ready();
+
+      const response = await appWithAuth.inject({
+        method: 'GET',
+        url: '/mcp',
+        headers: { Authorization: 'Bearer wrong-token' },
+      });
+
+      expect(response.statusCode).toBe(401);
+    });
+
+    it('allows /health without auth even when MCP_AUTH_TOKEN set', async () => {
+      process.env.MCP_AUTH_TOKEN = 'test-secret';
+      const { app: appWithAuth } = await import('./mcp-http.js');
+      await appWithAuth.ready();
+
+      const response = await appWithAuth.inject({
+        method: 'GET',
+        url: '/health',
+      });
+
+      expect(response.statusCode).toBe(200);
+    });
+  });
+
+  describe('rate limit', () => {
+    it('registers rate limit plugin and accepts requests within limit', async () => {
+      // Rate limit is configured from MCP_RATE_LIMIT_MAX (default 100).
+      // Full rate-limit behavior (429) is verified in e2e/Docker smoke tests.
+      const response = await app.inject({ method: 'GET', url: '/health' });
+      expect(response.statusCode).toBe(200);
+    });
+  });
+});

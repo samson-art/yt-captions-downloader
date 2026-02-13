@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.8] - 2026-02-13
+
+### Fixed
+
+- **yt-dlp cookies on read-only volume:** When `COOKIES_FILE_PATH` points to a read-only file (e.g. Docker volume mounted without write access), yt-dlp failed with `PermissionError` while saving cookies at exit, even when the download succeeded. The app now copies the cookies file to a writable temp location before passing it to yt-dlp; the temp file is removed after each call. New `ensureWritableCookiesFile()` in `youtube.ts` checks read/write access and returns either the original path or a temp copy. Used by `downloadSubtitles`, `downloadAudio`, and `fetchYtDlpJson`.
+
+### Added
+
+- **Unit tests:** `ensureWritableCookiesFile` — returns original path when writable; copies to temp and cleans up when read-only.
+
 ## [0.4.7] - 2026-02-13
 
 ### Added

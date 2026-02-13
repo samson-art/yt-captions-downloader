@@ -1,7 +1,8 @@
 import { execFile, type ExecFileException } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { promisify } from 'util';
-import { readFile, stat, unlink } from 'fs/promises';
+import { copyFile, readFile, stat, unlink } from 'fs/promises';
+import { constants } from 'node:fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import type { FastifyBaseLogger } from 'fastify';
@@ -129,6 +130,14 @@ export async function downloadSubtitles(
   const outputPath = join(tempDir, urlToSafeBase(url, 'subtitles'));
   const { jsRuntimes, remoteComponents, cookiesFilePathFromEnv } = getYtDlpEnv();
 
+  let cookiesPathToUse = cookiesFilePathFromEnv;
+  let cookiesCleanup: (() => Promise<void>) | undefined;
+  if (cookiesFilePathFromEnv) {
+    const resolved = await ensureWritableCookiesFile(cookiesFilePathFromEnv);
+    cookiesPathToUse = resolved.path;
+    cookiesCleanup = resolved.cleanup;
+  }
+
   try {
     await logCookiesFileStatus(logger, cookiesFilePathFromEnv);
     const subFlag = type === 'official' ? '--write-subs' : '--write-auto-subs';
@@ -144,7 +153,11 @@ export async function downloadSubtitles(
       url,
     ];
 
-    appendYtDlpEnvArgs(args, { jsRuntimes, remoteComponents, cookiesFilePathFromEnv });
+    appendYtDlpEnvArgs(args, {
+      jsRuntimes,
+      remoteComponents,
+      cookiesFilePathFromEnv: cookiesPathToUse,
+    });
 
     logger?.info(
       { type, lang, hasCookies: Boolean(cookiesFilePathFromEnv) },
@@ -209,6 +222,8 @@ export async function downloadSubtitles(
   } catch (error) {
     logger?.error({ error }, 'Error downloading subtitles');
     return null;
+  } finally {
+    await cookiesCleanup?.();
   }
 }
 
@@ -316,8 +331,20 @@ export async function downloadAudio(
   const outputTemplate = `${outputBase}.%(ext)s`;
   const { jsRuntimes, remoteComponents, cookiesFilePathFromEnv } = getYtDlpEnv();
 
+  let cookiesPathToUse = cookiesFilePathFromEnv;
+  let cookiesCleanup: (() => Promise<void>) | undefined;
+  if (cookiesFilePathFromEnv) {
+    const resolved = await ensureWritableCookiesFile(cookiesFilePathFromEnv);
+    cookiesPathToUse = resolved.path;
+    cookiesCleanup = resolved.cleanup;
+  }
+
   const args = ['--extract-audio', '--audio-format', 'm4a', '--output', outputTemplate, url];
-  appendYtDlpEnvArgs(args, { jsRuntimes, remoteComponents, cookiesFilePathFromEnv });
+  appendYtDlpEnvArgs(args, {
+    jsRuntimes,
+    remoteComponents,
+    cookiesFilePathFromEnv: cookiesPathToUse,
+  });
 
   try {
     await logCookiesFileStatus(logger, cookiesFilePathFromEnv);
@@ -354,6 +381,8 @@ export async function downloadAudio(
       'Error downloading audio via yt-dlp'
     );
     return null;
+  } finally {
+    await cookiesCleanup?.();
   }
 }
 
@@ -457,6 +486,34 @@ async function logCookiesFileStatus(
   }
 }
 
+/**
+ * Returns a writable path for the cookies file. yt-dlp reads and writes cookies;
+ * if the original file is read-only (e.g. Docker volume), it fails on save.
+ * Copies to a temp writable location when the original is not writable.
+ * Exported for testing.
+ */
+export async function ensureWritableCookiesFile(
+  originalPath: string
+): Promise<{ path: string; cleanup: () => Promise<void> }> {
+  const { access } = await import('node:fs/promises');
+  try {
+    await access(originalPath, constants.R_OK | constants.W_OK);
+    return { path: originalPath, cleanup: async () => {} };
+  } catch {
+    const tempPath = join(
+      tmpdir(),
+      `cookies_${Date.now()}_${Math.random().toString(36).slice(2)}.txt`
+    );
+    await copyFile(originalPath, tempPath);
+    return {
+      path: tempPath,
+      cleanup: async () => {
+        await unlink(tempPath).catch(() => {});
+      },
+    };
+  }
+}
+
 // Exported for testing.
 export function appendYtDlpEnvArgs(
   args: string[],
@@ -491,8 +548,20 @@ export async function fetchYtDlpJson(
 ): Promise<YtDlpVideoInfo | null> {
   const { jsRuntimes, remoteComponents, cookiesFilePathFromEnv } = getYtDlpEnv();
 
+  let cookiesPathToUse = cookiesFilePathFromEnv;
+  let cookiesCleanup: (() => Promise<void>) | undefined;
+  if (cookiesFilePathFromEnv) {
+    const resolved = await ensureWritableCookiesFile(cookiesFilePathFromEnv);
+    cookiesPathToUse = resolved.path;
+    cookiesCleanup = resolved.cleanup;
+  }
+
   const args = ['--dump-single-json', '--skip-download', url];
-  appendYtDlpEnvArgs(args, { jsRuntimes, remoteComponents, cookiesFilePathFromEnv });
+  appendYtDlpEnvArgs(args, {
+    jsRuntimes,
+    remoteComponents,
+    cookiesFilePathFromEnv: cookiesPathToUse,
+  });
 
   try {
     await logCookiesFileStatus(logger, cookiesFilePathFromEnv);
@@ -535,6 +604,8 @@ export async function fetchYtDlpJson(
       'Error fetching video info via yt-dlp'
     );
     return null;
+  } finally {
+    await cookiesCleanup?.();
   }
 }
 

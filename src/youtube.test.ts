@@ -21,6 +21,7 @@ const {
   findSubtitleFile,
   getYtDlpEnv,
   appendYtDlpEnvArgs,
+  ensureWritableCookiesFile,
   urlToSafeBase,
 } = youtube;
 
@@ -409,6 +410,36 @@ Hello world`;
         'ejs:github',
         'https://example.com',
       ]);
+    });
+
+    it('should return original path when cookies file is writable', async () => {
+      const writablePath = join(tmpdir(), 'cookies_writable.txt');
+      await writeFile(writablePath, '# Netscape\n', 'utf-8');
+
+      const { path, cleanup } = await ensureWritableCookiesFile(writablePath);
+
+      expect(path).toBe(writablePath);
+      await cleanup();
+      await expect(access(writablePath, constants.F_OK)).resolves.toBeUndefined();
+      await unlink(writablePath).catch(() => {});
+    });
+
+    it('should copy to temp when cookies file is read-only and cleanup removes temp', async () => {
+      const readOnlyPath = join(tmpdir(), 'cookies_readonly.txt');
+      await writeFile(readOnlyPath, '# Netscape\n', 'utf-8');
+      const { chmod } = await import('node:fs/promises');
+      await chmod(readOnlyPath, 0o444);
+
+      const { path, cleanup } = await ensureWritableCookiesFile(readOnlyPath);
+
+      expect(path).not.toBe(readOnlyPath);
+      expect(path).toContain(tmpdir());
+      expect(path).toMatch(/cookies_\d+_.*\.txt$/);
+      await expect(access(path, constants.F_OK)).resolves.toBeUndefined();
+      await cleanup();
+      await expect(access(path, constants.F_OK)).rejects.toThrow();
+      await chmod(readOnlyPath, 0o644);
+      await unlink(readOnlyPath).catch(() => {});
     });
 
     it('should add --proxy when proxyFromEnv is set and omit when unset', () => {

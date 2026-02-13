@@ -41,13 +41,5 @@ jobs:
         run: npm ci
 
       - name: Build
-        run: npm run build
+        run: make smoke
 
-      - name: Build Docker API image
-        run: docker build -t artsamsonov/transcriptor-mcp-api:latest -f Dockerfile --target api .
-
-      - name: Run smoke tests (REST only; set SMOKE_SKIP_MCP=0 to run MCP)
-        run: npm run test:e2e:api
-        env:
-          SMOKE_IMAGE_API: artsamsonov/transcriptor-mcp-api:latest
-          SMOKE_SKIP_MCP: '1'

@@ -113,7 +113,7 @@ For more MCP configuration examples, see [`docs/quick-start.mcp.md`](docs/quick-
 
 ## MCP tools
 
-- `get_transcript`: cleaned plain text subtitles (paginated)
+- `get_transcript`: cleaned plain text subtitles (URL only; first chunk, default size)
 - `get_raw_subtitles`: raw SRT/VTT (paginated)
 - `get_available_subtitles`: list official vs auto language codes
 - `get_video_info`: extended metadata (title, channel, tags, thumbnails, views, etc.)
@@ -125,7 +125,7 @@ All tools share the same base input:
 
 - `url` (string, required) – Video URL from a supported platform or YouTube video ID. Supported: YouTube, Twitter/X, Instagram, TikTok, Twitch, Vimeo, Facebook, Bilibili, VK, Dailymotion.
 
-Tools that return large text (`get_transcript`, `get_raw_subtitles`) also support pagination:
+`get_raw_subtitles` supports pagination; `get_transcript` returns the first chunk only (no pagination input). Pagination parameters for `get_raw_subtitles`:
 
 - `response_limit` (number, optional) – max characters per response, default `50000`, min `1000`, max `200000`.
 - `next_cursor` (string, optional) – opaque offset returned from the previous page; pass it to fetch the next chunk.
@@ -139,10 +139,7 @@ Each tool returns:
 
 **Purpose**: Fetch cleaned subtitles as plain text (no timestamps, HTML, or speaker metadata).
 
-**Extra input fields**:
-
-- `type` – `"official"` or `"auto"`, default `"auto"`.
-- `lang` – subtitle language code (e.g. `"en"`, `"ru"`, `"en-US"`), default `"en"`.
+**Input**: Only `url` (video URL or ID). Type and language are auto-discovered; the tool returns the first chunk with default size (no pagination parameters).
 
 **Structured response**:
 
@@ -152,7 +149,7 @@ Each tool returns:
 - `is_truncated` – `true` if more text is available.
 - `total_length` – total length of the full transcript.
 - `start_offset`, `end_offset` – character offsets of this chunk.
-- `next_cursor` – pass into the next call to continue pagination (omitted on the last page).
+- `next_cursor` – present in response when truncated (omitted on the last page). Not accepted as input for this tool.
 
 #### `get_raw_subtitles`
 
@@ -160,7 +157,9 @@ Each tool returns:
 
 **Extra input fields**:
 
-- Same as `get_transcript` (`type`, `lang`, `response_limit`, `next_cursor`).
+- `type` – `"official"` or `"auto"`, optional.
+- `lang` – subtitle language code, optional.
+- `response_limit`, `next_cursor` – pagination (optional).
 
 **Structured response**:
 
@@ -183,7 +182,7 @@ Each tool returns:
 - `official` – sorted list of language codes with official subtitles.
 - `auto` – sorted list of language codes with auto-generated subtitles.
 
-This is useful to first discover languages and then pick `type`/`lang` for `get_transcript` / `get_raw_subtitles`.
+This is useful to first discover languages and then pick `type`/`lang` for `get_raw_subtitles` (or other tools).
 
 #### `get_video_info`
 

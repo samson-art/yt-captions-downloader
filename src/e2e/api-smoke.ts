@@ -327,7 +327,7 @@ async function checkMcpStreamableGetTranscript(baseUrl: string): Promise<void> {
     method: 'tools/call',
     params: {
       name: 'get_transcript',
-      arguments: { url: videoUrl, type: 'auto', lang: 'en' },
+      arguments: { url: videoUrl },
     },
   };
 

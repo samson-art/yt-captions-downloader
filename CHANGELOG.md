@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **MCP `get_transcript`:** Input is now only `url`. Parameters `type`, `lang`, `response_limit`, and `next_cursor` have been removed. The tool uses auto-discovery for type/language and returns the first chunk with default size. For explicit type/lang and pagination use `get_raw_subtitles`.
+
 ### Added
 
 - **Smart subtitle auto-discovery:** When `type` and `lang` are both omitted for `POST /subtitles` (REST API) or `get_transcript`/`get_raw_subtitles` (MCP), the service now auto-discovers subtitles instead of defaulting to `auto`/`en`. Flow: (1) fetch available subtitles; (2) try each official language until success; (3) for YouTube auto captions, prefer `*-orig` (original-language tracks) first, then iterate remaining auto; (4) for non-YouTube, iterate auto list as-is; (5) if no subtitles found, fallback to Whisper; (6) return 404 only when all attempts and Whisper fail. Request schema: `type` and `lang` no longer have defaults when omitted, enabling detection of auto-discover vs explicit request. Cache key for auto-discover: `sub:{url}:auto-discovery`.

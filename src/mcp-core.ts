@@ -154,14 +154,14 @@ export function createMcpServer(opts?: CreateMcpServerOptions) {
     {
       title: 'Get video transcript',
       description:
-        'Fetch cleaned subtitles as plain text for a video (YouTube, Twitter/X, Instagram, TikTok, Twitch, Vimeo, Facebook, Bilibili, VK, Dailymotion). Optional lang: when omitted and Whisper fallback is used, language is auto-detected.',
-      inputSchema: subtitleInputSchema,
+        'Fetch cleaned subtitles as plain text for a video (YouTube, Twitter/X, Instagram, TikTok, Twitch, Vimeo, Facebook, Bilibili, VK, Dailymotion). Input: URL only. Uses auto-discovery for type/language and returns the first chunk with default size.',
+      inputSchema: baseInputSchema,
       outputSchema: transcriptOutputSchema,
     },
     async (args, _extra) => {
-      let resolved: ReturnType<typeof resolveSubtitleArgs>;
+      let resolved: ReturnType<typeof resolveTranscriptArgs>;
       try {
-        resolved = resolveSubtitleArgs(args);
+        resolved = resolveTranscriptArgs(args);
       } catch (err) {
         recordMcpToolError(TOOL_GET_TRANSCRIPT);
         return toolError(err instanceof Error ? err.message : 'Invalid request.');
@@ -475,6 +475,20 @@ export function createMcpServer(opts?: CreateMcpServerOptions) {
   );
 
   return server;
+}
+
+function resolveTranscriptArgs(args: { url: string }) {
+  const url = resolveVideoUrl(args.url);
+  if (!url) {
+    throw new Error('Invalid video URL. Use a URL from a supported platform or YouTube video ID.');
+  }
+  return {
+    url,
+    type: undefined,
+    lang: undefined,
+    responseLimit: DEFAULT_RESPONSE_LIMIT,
+    nextCursor: undefined,
+  };
 }
 
 function resolveSubtitleArgs(args: z.infer<typeof subtitleInputSchema>) {

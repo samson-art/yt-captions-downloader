@@ -1,10 +1,11 @@
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
 import { randomUUID } from 'node:crypto';
-import {
+import type {
   SSEServerTransport,
-  type SSEServerTransportOptions,
+  SSEServerTransportOptions,
 } from '@modelcontextprotocol/sdk/server/sse.js';
+import { createSseTransport } from './sse-transport.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { close as closeCache } from './cache.js';
 import {
@@ -40,6 +41,7 @@ const sseSessions = new Map<string, SseSession>();
 const mcpPort = process.env.MCP_PORT ? Number.parseInt(process.env.MCP_PORT, 10) : 4200;
 const mcpHost = process.env.MCP_HOST || '0.0.0.0';
 const authToken = process.env.MCP_AUTH_TOKEN?.trim();
+const mcpPublicUrl = process.env.MCP_PUBLIC_URL?.trim();
 
 const SESSION_TTL_MS = process.env.MCP_SESSION_TTL_MS
   ? Number.parseInt(process.env.MCP_SESSION_TTL_MS, 10)
@@ -165,7 +167,7 @@ app.get('/sse', async (request, reply) => {
   reply.hijack();
   const server = createMcpServer({ logger: app.log });
   const sseOptions = getSseOptions();
-  const transport = new SSEServerTransport('/message', reply.raw, sseOptions);
+  const transport = createSseTransport('/message', reply.raw, sseOptions, mcpPublicUrl);
 
   transport.onclose = () => {
     sseSessions.delete(transport.sessionId);

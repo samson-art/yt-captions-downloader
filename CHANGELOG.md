@@ -16,6 +16,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Smart subtitle auto-discovery:** When `type` and `lang` are both omitted for `POST /subtitles` (REST API) or `get_transcript`/`get_raw_subtitles` (MCP), the service now auto-discovers subtitles instead of defaulting to `auto`/`en`. Flow: (1) fetch available subtitles; (2) try each official language until success; (3) for YouTube auto captions, prefer `*-orig` (original-language tracks) first, then iterate remaining auto; (4) for non-YouTube, iterate auto list as-is; (5) if no subtitles found, fallback to Whisper; (6) return 404 only when all attempts and Whisper fail. Request schema: `type` and `lang` no longer have defaults when omitted, enabling detection of auto-discover vs explicit request. Cache key for auto-discover: `sub:{url}:auto-discovery`.
 - **Whisper request metric:** New Prometheus counter `whisper_requests_total` with label `mode` (`local` or `api`) records each Whisper transcription attempt. Exposed on both REST API and MCP HTTP `/metrics`. `recordWhisperRequest(mode)` in `src/metrics.ts`; called from `transcribeWithWhisper()` when transcription is actually attempted (not when skipped). Documented in `docs/monitoring.md` (metrics tables and PromQL examples). Unit tests in `whisper.test.ts` assert the metric is recorded for local and api mode and not recorded when Whisper returns early.
 
+## [0.5.2] - 2026-02-14
+
+### Fixed
+
+- **MCP SSE initialization 404 when used from another origin (e.g. Smithery):** The SDK sends a relative path in the SSE `endpoint` event (`/message?sessionId=...`). Clients that open the connection from a different origin (e.g. Smithery.ai auth/scan popup) resolved that path against their own origin and POSTed to the wrong host, resulting in "Initialization failed with status 404". The server now supports **`MCP_PUBLIC_URL`** (e.g. `https://transcriptor-mcp.comedy.cat`). When set, the SSE transport sends the full message URL in the `endpoint` event so the client POSTs to the correct server.
+
+### Added
+
+- **`MCP_PUBLIC_URL`:** Optional public base URL of the MCP server. When set, the SSE transport advertises the full message endpoint URL in the `endpoint` event. Documented in `docs/configuration.md`.
+- **`src/sse-transport.ts`:** `createSseTransport()` factory and `SseTransportWithFullUrl` subclass of the SDK's SSE transport; when `MCP_PUBLIC_URL` is set, the transport sends the full URL in the endpoint event.
+
 ## [0.5.0] - 2026-02-13
 
 ### Added

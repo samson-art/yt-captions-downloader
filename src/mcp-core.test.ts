@@ -273,6 +273,39 @@ describe('mcp-core tools', () => {
       expect(result.content[0].text).toContain('Failed to fetch video info');
     });
 
+    it('should log and return error when video info fetch throws unexpected error', async () => {
+      const logger: {
+        error: jest.Mock;
+        info: jest.Mock;
+        debug: jest.Mock;
+        warn: jest.Mock;
+        child: jest.Mock;
+      } = {
+        error: jest.fn(),
+        info: jest.fn(),
+        debug: jest.fn(),
+        warn: jest.fn(),
+        child: jest.fn(),
+      };
+      logger.child.mockReturnValue(logger);
+      const server = createMcpServer({ logger: logger as any }) as any;
+      const handler = getTool(server, 'get_video_info');
+
+      normalizeVideoInputMock.mockReturnValue(testUrl);
+      const errMsg =
+        "EACCES: permission denied, copyfile '/cookies/cookies.txt' -> '/tmp/cookies_xxx.txt'";
+      validateAndFetchVideoInfoMock.mockRejectedValue(new Error(errMsg));
+
+      const result = await handler({ url: testUrl }, {});
+
+      expect(result).toMatchObject({ isError: true });
+      expect(result.content[0].text).toBe(errMsg);
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.objectContaining({ err: expect.any(Error), tool: 'get_video_info' }),
+        'MCP tool unexpected error'
+      );
+    });
+
     it('should return structured video info on success', async () => {
       const server = createMcpServer() as any;
       const handler = getTool(server, 'get_video_info');

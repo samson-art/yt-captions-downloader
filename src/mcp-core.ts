@@ -182,7 +182,9 @@ export function createMcpServer(opts?: CreateMcpServerOptions) {
           recordMcpToolError(TOOL_GET_TRANSCRIPT);
           return toolError(err.message);
         }
-        throw err;
+        log.error({ err, tool: TOOL_GET_TRANSCRIPT }, 'MCP tool unexpected error');
+        recordMcpToolError(TOOL_GET_TRANSCRIPT);
+        return toolError(err instanceof Error ? err.message : 'Tool failed.');
       }
 
       let plainText: string;
@@ -253,7 +255,9 @@ export function createMcpServer(opts?: CreateMcpServerOptions) {
           recordMcpToolError(TOOL_GET_RAW_SUBTITLES);
           return toolError(err.message);
         }
-        throw err;
+        log.error({ err, tool: TOOL_GET_RAW_SUBTITLES }, 'MCP tool unexpected error');
+        recordMcpToolError(TOOL_GET_RAW_SUBTITLES);
+        return toolError(err instanceof Error ? err.message : 'Tool failed.');
       }
 
       recordMcpToolCall(TOOL_GET_RAW_SUBTITLES);
@@ -316,7 +320,9 @@ export function createMcpServer(opts?: CreateMcpServerOptions) {
           recordMcpToolError(TOOL_GET_AVAILABLE_SUBTITLES);
           return toolError(err.message);
         }
-        throw err;
+        log.error({ err, tool: TOOL_GET_AVAILABLE_SUBTITLES }, 'MCP tool unexpected error');
+        recordMcpToolError(TOOL_GET_AVAILABLE_SUBTITLES);
+        return toolError(err instanceof Error ? err.message : 'Tool failed.');
       }
 
       recordMcpToolCall(TOOL_GET_AVAILABLE_SUBTITLES);
@@ -371,7 +377,9 @@ export function createMcpServer(opts?: CreateMcpServerOptions) {
           recordMcpToolError(TOOL_GET_VIDEO_INFO);
           return toolError(err.message);
         }
-        throw err;
+        log.error({ err, tool: TOOL_GET_VIDEO_INFO }, 'MCP tool unexpected error');
+        recordMcpToolError(TOOL_GET_VIDEO_INFO);
+        return toolError(err instanceof Error ? err.message : 'Tool failed.');
       }
 
       const { videoId, info } = result;
@@ -452,7 +460,9 @@ export function createMcpServer(opts?: CreateMcpServerOptions) {
           recordMcpToolError(TOOL_GET_VIDEO_CHAPTERS);
           return toolError(err.message);
         }
-        throw err;
+        log.error({ err, tool: TOOL_GET_VIDEO_CHAPTERS }, 'MCP tool unexpected error');
+        recordMcpToolError(TOOL_GET_VIDEO_CHAPTERS);
+        return toolError(err instanceof Error ? err.message : 'Tool failed.');
       }
 
       recordMcpToolCall(TOOL_GET_VIDEO_CHAPTERS);

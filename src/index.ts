@@ -24,6 +24,7 @@ import { checkYtDlpAtStartup } from './yt-dlp-check.js';
 import { close as closeCache, ping as cachePing } from './cache.js';
 import * as Sentry from '@sentry/node';
 import { recordRequest, renderPrometheus, getFailedSubtitlesUrls } from './metrics.js';
+import { createLoggerWithSentryBreadcrumbs } from './logger-sentry-breadcrumbs.js';
 
 // Response schemas for OpenAPI/Swagger
 const ErrorResponseSchema = Type.Object({
@@ -79,7 +80,7 @@ const VideoChaptersResponseSchema = Type.Object({
 });
 
 const fastify = Fastify({
-  logger: true,
+  loggerInstance: createLoggerWithSentryBreadcrumbs(),
 }).withTypeProvider<TypeBoxTypeProvider>();
 
 fastify.setErrorHandler((error, request, reply) => {

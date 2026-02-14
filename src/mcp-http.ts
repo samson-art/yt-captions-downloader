@@ -19,6 +19,7 @@ import { createMcpServer } from './mcp-core.js';
 import { version } from './version.js';
 import * as Sentry from '@sentry/node';
 import { checkYtDlpAtStartup } from './yt-dlp-check.js';
+import { createLoggerWithSentryBreadcrumbs } from './logger-sentry-breadcrumbs.js';
 
 setMetricsService('mcp');
 
@@ -34,7 +35,7 @@ type SseSession = {
   createdAt: number;
 };
 
-const app = Fastify({ logger: true });
+const app = Fastify({ loggerInstance: createLoggerWithSentryBreadcrumbs() });
 
 const streamableSessions = new Map<string, StreamableSession>();
 const sseSessions = new Map<string, SseSession>();

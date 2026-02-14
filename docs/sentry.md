@@ -42,6 +42,12 @@ When `SENTRY_DSN` is not set, the app runs as before; no events are sent to Sent
 
 In Sentry you can filter by `request.statusCode` (in the event context) or by level (warning vs error) to separate client errors from server errors.
 
+## Breadcrumbs
+
+All log calls (debug, info, warn, error) from the Pino logger are added as **breadcrumbs** to Sentry events. When a 4xx or 5xx error is captured, the event includes the full trail of log calls that led up to the error.
+
+To view breadcrumbs in Sentry: open an issue or event → **Breadcrumbs** section shows the chronological sequence of log entries (level, message, data). Breadcrumbs are scoped per request, so you see only the logs for the request that triggered the error.
+
 ## Alerts in Sentry
 
 In the Sentry UI: **Alerts** → create a rule (e.g. when an issue is first seen or when event count exceeds a threshold) and add notification actions (email, Slack, etc.). Filter by environment or release if you set `SENTRY_ENVIRONMENT` / `SENTRY_RELEASE`.

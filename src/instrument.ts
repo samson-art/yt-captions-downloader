@@ -9,4 +9,5 @@ Sentry.init({
   dsn: process.env.SENTRY_DSN,
   environment: process.env.SENTRY_ENVIRONMENT,
   release: process.env.SENTRY_RELEASE,
+  maxBreadcrumbs: 100,
 });

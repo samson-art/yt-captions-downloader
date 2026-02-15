@@ -15,6 +15,7 @@ const {
   detectSubtitleFormat,
   parseSubtitles,
   downloadSubtitles,
+  downloadAudio,
   fetchVideoInfo,
   fetchVideoChapters,
   fetchYtDlpJson,
@@ -321,6 +322,88 @@ Hello world`;
       expect(result).toBe(content);
       await expect(access(subtitleFilePath, constants.F_OK)).rejects.toThrow();
 
+      dateSpy.mockRestore();
+    });
+  });
+
+  describe('downloadAudio', () => {
+    const url = 'https://www.youtube.com/watch?v=audio123';
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      delete process.env.YT_DLP_AUDIO_FORMAT;
+      delete process.env.YT_DLP_AUDIO_QUALITY;
+    });
+
+    it('should pass format and audio-quality to yt-dlp and return path to audio file', async () => {
+      const timestamp = 1234567894;
+      const dateSpy = jest.spyOn(Date, 'now').mockReturnValue(timestamp);
+      const tempDir = tmpdir();
+      const baseName = urlToSafeBase(url, 'audio');
+      const audioFilePath = join(tempDir, `${baseName}.m4a`);
+      await writeFile(audioFilePath, 'fake audio', 'utf-8');
+
+      let capturedArgs: string[] = [];
+      execFileMock.mockImplementation(
+        (
+          file: string,
+          args: string[],
+          _options: unknown,
+          callback: (error: Error | null, result: { stdout: string; stderr: string }) => void
+        ) => {
+          expect(file).toBe('yt-dlp');
+          capturedArgs = args;
+          callback(null, { stdout: '', stderr: '' });
+        }
+      );
+
+      const result = await downloadAudio(url);
+
+      expect(execFileMock).toHaveBeenCalled();
+      expect(capturedArgs).toContain('-f');
+      expect(capturedArgs).toContain('bestaudio[abr<=192]/bestaudio');
+      expect(capturedArgs).toContain('--audio-quality');
+      expect(capturedArgs).toContain('5');
+      expect(capturedArgs).toContain('--extract-audio');
+      expect(capturedArgs).toContain('--audio-format');
+      expect(capturedArgs).toContain('m4a');
+      expect(result).toBe(audioFilePath);
+
+      await unlink(audioFilePath).catch(() => {});
+      dateSpy.mockRestore();
+    });
+
+    it('should use YT_DLP_AUDIO_FORMAT and YT_DLP_AUDIO_QUALITY when set', async () => {
+      process.env.YT_DLP_AUDIO_FORMAT = 'bestaudio[abr<=128]/ba';
+      process.env.YT_DLP_AUDIO_QUALITY = '7';
+      const timestamp = 1234567895;
+      const dateSpy = jest.spyOn(Date, 'now').mockReturnValue(timestamp);
+      const tempDir = tmpdir();
+      const baseName = urlToSafeBase(url, 'audio');
+      const audioFilePath = join(tempDir, `${baseName}.m4a`);
+      await writeFile(audioFilePath, 'fake audio', 'utf-8');
+
+      let capturedArgs: string[] = [];
+      execFileMock.mockImplementation(
+        (
+          _file: string,
+          args: string[],
+          _options: unknown,
+          callback: (error: Error | null, result: { stdout: string; stderr: string }) => void
+        ) => {
+          capturedArgs = args;
+          callback(null, { stdout: '', stderr: '' });
+        }
+      );
+
+      await downloadAudio(url);
+
+      const formatIdx = capturedArgs.indexOf('-f');
+      expect(capturedArgs[formatIdx + 1]).toBe('bestaudio[abr<=128]/ba');
+      const qualityIdx = capturedArgs.indexOf('--audio-quality');
+      expect(capturedArgs[qualityIdx + 1]).toBe('7');
+
+      await unlink(audioFilePath).catch(() => {});
       dateSpy.mockRestore();
     });
   });

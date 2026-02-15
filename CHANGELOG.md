@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.8] - 2026-02-15
+
+### Added
+
+- **Optimal audio quality for Whisper:** When downloading audio via yt-dlp for Whisper fallback, the app now prefers smaller streams to reduce download time without hurting speech recognition. Format selector `bestaudio[abr<=192]/bestaudio` (prefer streams ≤192 kbps; fallback to best audio) and `--audio-quality 5` (~128 kbps VBR for m4a) are used by default. Configurable via **`YT_DLP_AUDIO_FORMAT`** (default: `bestaudio[abr<=192]/bestaudio`) and **`YT_DLP_AUDIO_QUALITY`** (0–9, default: `5`). Documented in `docs/configuration.md` and `.env.example`. Unit tests in `youtube.test.ts` assert default and env-driven args for `downloadAudio`.
+
+### Changed
+
+- **Audio download (Whisper):** `downloadAudio()` in `src/youtube.ts` now passes `-f`, `--audio-quality`, and the chosen format/quality to yt-dlp. Flow description in `docs/configuration.md` (Whisper section) updated to mention the default format and quality.
+
 ## [0.5.7] - 2026-02-15
 
 ### Changed

@@ -339,7 +339,27 @@ export async function downloadAudio(
     cookiesCleanup = resolved.cleanup;
   }
 
-  const args = ['--extract-audio', '--audio-format', 'm4a', '--output', outputTemplate, url];
+  const audioFormat =
+    (process.env.YT_DLP_AUDIO_FORMAT ?? '').trim() || 'bestaudio[abr<=192]/bestaudio';
+  const audioQualityRaw = process.env.YT_DLP_AUDIO_QUALITY ?? '5';
+  const audioQualityNum = Number.parseInt(audioQualityRaw, 10);
+  const audioQuality =
+    Number.isNaN(audioQualityNum) || audioQualityNum < 0 || audioQualityNum > 9
+      ? '5'
+      : String(audioQualityNum);
+
+  const args = [
+    '-f',
+    audioFormat,
+    '--extract-audio',
+    '--audio-format',
+    'm4a',
+    '--audio-quality',
+    audioQuality,
+    '--output',
+    outputTemplate,
+    url,
+  ];
   appendYtDlpEnvArgs(args, {
     jsRuntimes,
     remoteComponents,

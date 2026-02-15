@@ -150,6 +150,7 @@ export async function downloadSubtitles(
       'srt/vtt',
       '--output',
       `${outputPath}.%(ext)s`,
+      '--no-playlist',
       url,
     ];
 
@@ -224,6 +225,147 @@ export async function downloadSubtitles(
     return null;
   } finally {
     await cookiesCleanup?.();
+  }
+}
+
+export type PlaylistSubtitlesResult = {
+  videoId: string;
+  content: string;
+};
+
+/** Options for downloadPlaylistSubtitles */
+export type DownloadPlaylistSubtitlesOptions = {
+  type?: 'official' | 'auto';
+  lang?: string;
+  /** yt-dlp -I/--playlist-items, e.g. "1:5", "1,3,7", "-1" */
+  playlistItems?: string;
+  /** yt-dlp --max-downloads */
+  maxItems?: number;
+};
+
+/**
+ * Downloads subtitles for multiple videos from a playlist using yt-dlp.
+ * @param url - Playlist URL or watch URL with list= parameter
+ * @param options - Optional type, lang, playlistItems, maxItems
+ * @param logger - Fastify logger instance for structured logging
+ * @returns Array of { videoId, content } or null on error
+ */
+export async function downloadPlaylistSubtitles(
+  url: string,
+  options: DownloadPlaylistSubtitlesOptions = {},
+  logger?: FastifyBaseLogger
+): Promise<PlaylistSubtitlesResult[] | null> {
+  const { type = 'auto', lang = 'en', playlistItems, maxItems } = options;
+  const tempDir = join(
+    tmpdir(),
+    `playlist_subs_${Date.now()}_${Math.random().toString(36).slice(2)}`
+  );
+  const outputTemplate = join(tempDir, '%(id)s.%(ext)s');
+  const { jsRuntimes, remoteComponents, cookiesFilePathFromEnv } = getYtDlpEnv();
+
+  let cookiesPathToUse = cookiesFilePathFromEnv;
+  let cookiesCleanup: (() => Promise<void>) | undefined;
+  if (cookiesFilePathFromEnv) {
+    const resolved = await ensureWritableCookiesFile(cookiesFilePathFromEnv);
+    cookiesPathToUse = resolved.path;
+    cookiesCleanup = resolved.cleanup;
+  }
+
+  const { mkdir, readdir } = await import('node:fs/promises');
+
+  try {
+    await mkdir(tempDir, { recursive: true });
+    await logCookiesFileStatus(logger, cookiesFilePathFromEnv);
+
+    const subFlag = type === 'official' ? '--write-subs' : '--write-auto-subs';
+    const args = [
+      subFlag,
+      '--skip-download',
+      '--sub-lang',
+      lang,
+      '--sub-format',
+      'srt/vtt',
+      '--output',
+      outputTemplate,
+      '--yes-playlist',
+    ];
+    if (playlistItems) {
+      args.push('--playlist-items', playlistItems);
+    }
+    if (maxItems != null && maxItems > 0) {
+      args.push('--max-downloads', String(maxItems));
+    }
+    args.push(url);
+
+    const downloadArchive = process.env.YT_DLP_DOWNLOAD_ARCHIVE?.trim();
+    if (downloadArchive) {
+      args.splice(-1, 0, '--download-archive', downloadArchive, '--break-on-existing');
+    }
+    appendYtDlpEnvArgs(args, {
+      jsRuntimes,
+      remoteComponents,
+      cookiesFilePathFromEnv: cookiesPathToUse,
+    });
+
+    logger?.info(
+      { type, lang, playlistItems, maxItems, hasCookies: Boolean(cookiesFilePathFromEnv) },
+      'Downloading playlist subtitles via yt-dlp'
+    );
+
+    const timeout = process.env.YT_DLP_TIMEOUT
+      ? Number.parseInt(process.env.YT_DLP_TIMEOUT, 10)
+      : 60000;
+    const extendedTimeout = Math.max(timeout, 120000);
+    await execFileAsync('yt-dlp', args, {
+      maxBuffer: 50 * 1024 * 1024,
+      timeout: extendedTimeout,
+    });
+    if (logger) {
+      logger.debug({ tempDir }, 'yt-dlp playlist subtitles completed');
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    const files = await readdir(tempDir);
+    const subtitleFiles = files.filter((f) => f.endsWith('.srt') || f.endsWith('.vtt'));
+    const results: PlaylistSubtitlesResult[] = [];
+
+    for (const file of subtitleFiles) {
+      const parts = file.split('.');
+      if (parts.length < 3) continue;
+      const ext = parts.pop()!;
+      parts.pop();
+      const videoId = parts.join('.');
+      if (!videoId || !['srt', 'vtt'].includes(ext)) continue;
+
+      const filePath = join(tempDir, file);
+      try {
+        const content = await readFile(filePath, 'utf-8');
+        if (content.trim().length > 0) {
+          results.push({ videoId, content });
+        }
+      } catch (readErr) {
+        logger?.warn({ file, error: readErr }, 'Failed to read subtitle file');
+      }
+      await unlink(filePath).catch(() => {});
+    }
+
+    return results;
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    const execErr = isExecFileException(error) ? error : null;
+    logger?.error(
+      {
+        error: err.message,
+        ...(execErr && { stdout: execErr.stdout, stderr: execErr.stderr }),
+      },
+      'Error downloading playlist subtitles'
+    );
+    return null;
+  } finally {
+    await cookiesCleanup?.();
+    const { rm } = await import('node:fs/promises');
+    await rm(tempDir, { recursive: true, force: true }).catch(() => {});
   }
 }
 
@@ -358,8 +500,13 @@ export async function downloadAudio(
     audioQuality,
     '--output',
     outputTemplate,
+    '--no-playlist',
     url,
   ];
+  const maxFilesize = process.env.YT_DLP_MAX_FILESIZE?.trim();
+  if (maxFilesize) {
+    args.splice(-1, 0, '--max-filesize', maxFilesize);
+  }
   appendYtDlpEnvArgs(args, {
     jsRuntimes,
     remoteComponents,
@@ -588,10 +735,17 @@ type YtDlpSearchResponse = {
   entries?: YtDlpSearchEntry[];
 };
 
-/** Options for searchVideos: offset for pagination, dateAfter for yt-dlp --dateafter (e.g. "now-1week"). */
+/** Options for searchVideos: offset for pagination, date filters, match filter. */
 export type SearchVideosOptions = {
   offset?: number;
+  /** yt-dlp --dateafter, e.g. "now-1week" or "20231201" */
   dateAfter?: string;
+  /** yt-dlp --datebefore, e.g. "now-1year" or "20241201" */
+  dateBefore?: string;
+  /** yt-dlp --date, exact date e.g. "20231215" or "today-2weeks" */
+  date?: string;
+  /** yt-dlp --match-filter, e.g. "!is_live" or "duration < 3600 & like_count > 100" */
+  matchFilter?: string;
 };
 
 /**
@@ -599,7 +753,7 @@ export type SearchVideosOptions = {
  * @param query - Search query
  * @param limit - Max number of results to return (1-50, default 10)
  * @param logger - Fastify logger instance for structured logging
- * @param options - Optional offset (pagination) and dateAfter (yt-dlp --dateafter, e.g. "now-1week")
+ * @param options - Optional offset (pagination), dateAfter, dateBefore, date, matchFilter
  * @returns Array of search results or null on error
  */
 export async function searchVideos(
@@ -626,6 +780,19 @@ export async function searchVideos(
   if (options?.dateAfter) {
     args.push('--dateafter', options.dateAfter);
   }
+  if (options?.dateBefore) {
+    args.push('--datebefore', options.dateBefore);
+  }
+  if (options?.date) {
+    args.push('--date', options.date);
+  }
+  if (options?.matchFilter) {
+    args.push('--match-filter', options.matchFilter);
+  }
+  const ageLimit = process.env.YT_DLP_AGE_LIMIT?.trim();
+  if (ageLimit) {
+    args.push('--age-limit', ageLimit);
+  }
   appendYtDlpEnvArgs(args, {
     jsRuntimes,
     remoteComponents,
@@ -639,7 +806,15 @@ export async function searchVideos(
       ? Number.parseInt(process.env.YT_DLP_TIMEOUT, 10)
       : 60000;
     logger?.info(
-      { query, limit: sanitizedLimit, offset, dateAfter: options?.dateAfter },
+      {
+        query,
+        limit: sanitizedLimit,
+        offset,
+        dateAfter: options?.dateAfter,
+        dateBefore: options?.dateBefore,
+        date: options?.date,
+        matchFilter: options?.matchFilter,
+      },
       'Searching videos via yt-dlp'
     );
     const { stdout, stderr } = await execFileAsync('yt-dlp', args, {
@@ -715,7 +890,7 @@ export async function fetchYtDlpJson(
     cookiesCleanup = resolved.cleanup;
   }
 
-  const args = ['--dump-single-json', '--skip-download', url];
+  const args = ['--dump-single-json', '--skip-download', '--no-playlist', url];
   appendYtDlpEnvArgs(args, {
     jsRuntimes,
     remoteComponents,

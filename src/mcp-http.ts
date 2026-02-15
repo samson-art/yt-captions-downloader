@@ -269,10 +269,41 @@ function getServerCard(): {
         annotations: { readOnlyHint: true, idempotentHint: true },
       },
       {
+        name: 'get_playlist_transcripts',
+        title: 'Get playlist transcripts',
+        description:
+          'Fetch cleaned subtitles for multiple videos from a playlist. Optional: playlistItems (e.g. "1:5"), maxItems, type, lang.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            url: {
+              type: 'string',
+              description: 'Playlist URL or watch URL with list= parameter',
+            },
+            type: {
+              type: 'string',
+              enum: ['official', 'auto'],
+              description: 'Subtitle type (default: auto)',
+            },
+            lang: { type: 'string', description: 'Language code (default: en)' },
+            playlistItems: {
+              type: 'string',
+              description: 'yt-dlp -I spec: "1:5", "1,3,7", "-1" for last',
+            },
+            maxItems: {
+              type: 'integer',
+              description: 'Max number of videos to fetch',
+            },
+          },
+          required: ['url'],
+        },
+        annotations: { readOnlyHint: true, idempotentHint: true },
+      },
+      {
         name: 'search_videos',
         title: 'Search videos',
         description:
-          'Search videos on YouTube via yt-dlp (ytsearch). Returns list of matching videos with metadata. Optional: limit, offset (pagination), uploadDateFilter (hour|today|week|month|year), response_format (json|markdown).',
+          'Search videos on YouTube via yt-dlp (ytsearch). Returns list of matching videos with metadata. Optional: limit, offset (pagination), uploadDateFilter (hour|today|week|month|year), dateBefore, date, matchFilter (e.g. "!is_live"), response_format (json|markdown).',
         inputSchema: {
           type: 'object',
           properties: {
@@ -283,6 +314,18 @@ function getServerCard(): {
               type: 'string',
               enum: ['hour', 'today', 'week', 'month', 'year'],
               description: 'Filter by upload date (relative to now)',
+            },
+            dateBefore: {
+              type: 'string',
+              description: 'yt-dlp --datebefore, e.g. "now-1year" or "20241201"',
+            },
+            date: {
+              type: 'string',
+              description: 'yt-dlp --date, exact date e.g. "20231215" or "today-2weeks"',
+            },
+            matchFilter: {
+              type: 'string',
+              description: 'yt-dlp --match-filter, e.g. "!is_live" or "duration < 3600"',
             },
             response_format: {
               type: 'string',

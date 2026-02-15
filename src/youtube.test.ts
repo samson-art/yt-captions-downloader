@@ -15,6 +15,7 @@ const {
   detectSubtitleFormat,
   parseSubtitles,
   downloadSubtitles,
+  downloadPlaylistSubtitles,
   downloadAudio,
   fetchVideoInfo,
   fetchVideoChapters,
@@ -877,6 +878,64 @@ Hello world`;
         }
       );
       await searchVideos('query', 0);
+    });
+
+    it('should pass dateBefore, date, matchFilter to yt-dlp when provided', async () => {
+      execFileMock.mockImplementation(
+        (
+          _file: string,
+          args: string[],
+          _opts: unknown,
+          cb: (e: null, r: { stdout: string }) => void
+        ) => {
+          expect(args).toContain('--datebefore');
+          expect(args[args.indexOf('--datebefore') + 1]).toBe('now-1year');
+          expect(args).toContain('--date');
+          expect(args[args.indexOf('--date') + 1]).toBe('20231215');
+          expect(args).toContain('--match-filter');
+          expect(args[args.indexOf('--match-filter') + 1]).toBe('!is_live');
+          cb(null, { stdout: JSON.stringify({ entries: [] }) });
+        }
+      );
+      await searchVideos('query', 10, undefined, {
+        dateBefore: 'now-1year',
+        date: '20231215',
+        matchFilter: '!is_live',
+      });
+    });
+  });
+
+  describe('downloadPlaylistSubtitles', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('should pass --yes-playlist, --playlist-items, --max-downloads to yt-dlp', async () => {
+      let capturedArgs: string[] = [];
+      execFileMock.mockImplementation(
+        (
+          _file: string,
+          args: string[],
+          _opts: unknown,
+          cb: (err: null, stdout: string, stderr: string) => void
+        ) => {
+          capturedArgs = args;
+          setImmediate(() => cb(null, '', ''));
+        }
+      );
+      await downloadPlaylistSubtitles('https://www.youtube.com/playlist?list=PLxxx', {
+        playlistItems: '1:5',
+        maxItems: 3,
+        type: 'official',
+        lang: 'en',
+      });
+      expect(execFileMock).toHaveBeenCalled();
+      expect(capturedArgs).toContain('--yes-playlist');
+      expect(capturedArgs).toContain('--playlist-items');
+      expect(capturedArgs[capturedArgs.indexOf('--playlist-items') + 1]).toBe('1:5');
+      expect(capturedArgs).toContain('--max-downloads');
+      expect(capturedArgs[capturedArgs.indexOf('--max-downloads') + 1]).toBe('3');
+      expect(capturedArgs).toContain('--write-subs');
     });
   });
 });

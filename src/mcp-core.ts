@@ -8,6 +8,7 @@ import type { FastifyBaseLogger } from 'fastify';
 import pino from 'pino';
 import {
   detectSubtitleFormat,
+  downloadPlaylistSubtitles,
   parseSubtitles,
   searchVideos,
   type VideoChapter,
@@ -29,6 +30,7 @@ const TOOL_GET_RAW_SUBTITLES = 'get_raw_subtitles';
 const TOOL_GET_AVAILABLE_SUBTITLES = 'get_available_subtitles';
 const TOOL_GET_VIDEO_INFO = 'get_video_info';
 const TOOL_GET_VIDEO_CHAPTERS = 'get_video_chapters';
+const TOOL_GET_PLAYLIST_TRANSCRIPTS = 'get_playlist_transcripts';
 const TOOL_SEARCH_VIDEOS = 'search_videos';
 
 function createDefaultLogger(): FastifyBaseLogger {
@@ -158,6 +160,39 @@ const UPLOAD_DATE_FILTER_TO_YTDLP: Record<string, string> = {
   year: 'now-1year',
 };
 
+const playlistTranscriptsInputSchema = z.object({
+  url: z
+    .string()
+    .min(1)
+    .describe(
+      'Playlist URL (e.g. youtube.com/playlist?list=XXX) or watch URL with list= parameter'
+    ),
+  type: z
+    .enum(['official', 'auto'])
+    .optional()
+    .describe('Subtitle track type: official or auto-generated (default: auto)'),
+  lang: z.string().optional().describe('Language code (e.g. en, ru). Default: en'),
+  playlistItems: z
+    .string()
+    .optional()
+    .describe('yt-dlp -I spec: "1:5", "1,3,7", "-1" for last, "1:10:2" for every 2nd'),
+  maxItems: z
+    .number()
+    .int()
+    .min(1)
+    .optional()
+    .describe('Max number of videos to fetch (yt-dlp --max-downloads)'),
+});
+
+const playlistTranscriptsOutputSchema = z.object({
+  results: z.array(
+    z.object({
+      videoId: z.string(),
+      text: z.string(),
+    })
+  ),
+});
+
 const searchInputSchema = z.object({
   query: z.string().optional().describe('Search query'),
   limit: z.number().int().min(1).max(50).optional().describe('Max results (default 10)'),
@@ -166,6 +201,15 @@ const searchInputSchema = z.object({
     .enum(['hour', 'today', 'week', 'month', 'year'])
     .optional()
     .describe('Filter by upload date (relative to now)'),
+  dateBefore: z.string().optional().describe('yt-dlp --datebefore, e.g. "now-1year" or "20241201"'),
+  date: z
+    .string()
+    .optional()
+    .describe('yt-dlp --date, exact date e.g. "20231215" or "today-2weeks"'),
+  matchFilter: z
+    .string()
+    .optional()
+    .describe('yt-dlp --match-filter, e.g. "!is_live" or "duration < 3600 & like_count > 100"'),
   response_format: z
     .enum(['json', 'markdown'])
     .optional()
@@ -549,6 +593,72 @@ export function createMcpServer(opts?: CreateMcpServerOptions) {
   );
 
   /**
+   * Get transcripts for multiple videos from a playlist
+   */
+  server.registerTool(
+    'get_playlist_transcripts',
+    {
+      title: 'Get playlist transcripts',
+      description:
+        'Fetch cleaned subtitles (plain text) for multiple videos from a playlist. Use playlistItems (e.g. "1:5") to select specific items, maxItems to limit count.',
+      inputSchema: playlistTranscriptsInputSchema,
+      outputSchema: playlistTranscriptsOutputSchema,
+      annotations: { readOnlyHint: true, idempotentHint: true },
+    },
+    async (args, _extra) => {
+      const url = resolveVideoUrl(args.url);
+      if (!url) {
+        recordMcpToolError(TOOL_GET_PLAYLIST_TRANSCRIPTS);
+        return toolError(
+          'Invalid URL. Use a playlist URL (e.g. youtube.com/playlist?list=XXX) or watch URL with list= parameter.'
+        );
+      }
+
+      const lang = args.lang ? (sanitizeLang(args.lang) ?? 'en') : 'en';
+
+      let rawResults: Awaited<ReturnType<typeof downloadPlaylistSubtitles>>;
+      try {
+        rawResults = await downloadPlaylistSubtitles(
+          url,
+          {
+            type: args.type ?? 'auto',
+            lang,
+            playlistItems: args.playlistItems,
+            maxItems: args.maxItems,
+          },
+          log
+        );
+      } catch (err) {
+        log.error({ err, tool: TOOL_GET_PLAYLIST_TRANSCRIPTS }, 'MCP tool unexpected error');
+        recordMcpToolError(TOOL_GET_PLAYLIST_TRANSCRIPTS);
+        return toolError(err instanceof Error ? err.message : 'Tool failed.');
+      }
+
+      if (rawResults === null) {
+        recordMcpToolError(TOOL_GET_PLAYLIST_TRANSCRIPTS);
+        return toolError('Failed to fetch playlist subtitles.');
+      }
+
+      recordMcpToolCall(TOOL_GET_PLAYLIST_TRANSCRIPTS);
+
+      const results = rawResults.map((r) => ({
+        videoId: r.videoId,
+        text: parseSubtitles(r.content, log),
+      }));
+
+      const text =
+        results.length === 0
+          ? 'No transcripts found.'
+          : results.map((r) => `[${r.videoId}]\n${r.text}`).join('\n\n---\n\n');
+
+      return {
+        content: [textContent(text)],
+        structuredContent: { results },
+      };
+    }
+  );
+
+  /**
    * Search videos
    * @param args - Arguments for the tool
    * @returns Search results
@@ -558,7 +668,7 @@ export function createMcpServer(opts?: CreateMcpServerOptions) {
     {
       title: 'Search videos',
       description:
-        'Search videos on YouTube via yt-dlp (ytsearch). Returns list of matching videos with metadata. Optional: limit, offset (pagination), uploadDateFilter (hour|today|week|month|year), response_format (json|markdown).',
+        'Search videos on YouTube via yt-dlp (ytsearch). Returns list of matching videos with metadata. Optional: limit, offset (pagination), uploadDateFilter (hour|today|week|month|year), dateBefore, date, matchFilter (e.g. "!is_live"), response_format (json|markdown).',
       inputSchema: searchInputSchema,
       outputSchema: searchVideosOutputSchema,
       annotations: { readOnlyHint: true, idempotentHint: false },
@@ -583,6 +693,9 @@ export function createMcpServer(opts?: CreateMcpServerOptions) {
         results = await searchVideos(query, sanitizedLimit, log, {
           offset: offset > 0 ? offset : undefined,
           dateAfter,
+          dateBefore: args.dateBefore,
+          date: args.date,
+          matchFilter: args.matchFilter,
         });
       } catch (err) {
         log.error({ err, tool: TOOL_SEARCH_VIDEOS }, 'MCP tool unexpected error');
@@ -734,6 +847,7 @@ export function createMcpServer(opts?: CreateMcpServerOptions) {
                 'get_available_subtitles',
                 'get_video_info',
                 'get_video_chapters',
+                'get_playlist_transcripts',
                 'search_videos',
               ],
               prompts: ['get_transcript_for_video', 'summarize_video', 'search_and_summarize'],
@@ -779,7 +893,7 @@ export function createMcpServer(opts?: CreateMcpServerOptions) {
         {
           uri: USAGE_URI,
           mimeType: 'text/plain',
-          text: 'Use get_transcript for plain-text subtitles, get_raw_subtitles for SRT/VTT, get_available_subtitles to list languages, get_video_info for metadata, get_video_chapters for chapter markers, search_videos to search YouTube. URL-based tools accept a video URL or YouTube video ID.',
+          text: 'Use get_transcript for plain-text subtitles, get_raw_subtitles for SRT/VTT, get_available_subtitles to list languages, get_video_info for metadata, get_video_chapters for chapter markers, get_playlist_transcripts for multiple videos from a playlist, search_videos to search YouTube. URL-based tools accept a video URL or YouTube video ID.',
         },
       ],
     })

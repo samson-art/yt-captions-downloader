@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-02-15
+
+### Added
+
+- **MCP tool `get_playlist_transcripts`:** Fetch cleaned subtitles for multiple videos from a playlist in one call. Parameters: `url` (playlist or watch with list=), optional `playlistItems` (yt-dlp -I spec, e.g. "1:5", "1,3,7", "-1"), `maxItems`, `type`, `lang`. New `downloadPlaylistSubtitles()` in `src/youtube.ts`; tool registered in `mcp-core.ts` and server card.
+- **`search_videos` extended with yt-dlp filters:** Optional `dateBefore` (e.g. "now-1year"), `date` (exact date), `matchFilter` (e.g. "!is_live", "duration < 3600"). `searchVideos()` in `src/youtube.ts` now accepts these in `SearchVideosOptions`; yt-dlp receives `--datebefore`, `--date`, `--match-filter` when set.
+- **yt-dlp `--no-playlist` for single-video tools:** `downloadSubtitles`, `fetchYtDlpJson`, and `downloadAudio` now pass `--no-playlist` so URLs like `watch?v=X&list=Y` process only the single video instead of the full playlist.
+- **yt-dlp env filters:** New optional env vars: `YT_DLP_MAX_FILESIZE` (e.g. "50M") for Whisper audio; `YT_DLP_DOWNLOAD_ARCHIVE` (path) and `--break-on-existing` for `get_playlist_transcripts`; `YT_DLP_AGE_LIMIT` for `search_videos`. Documented in `docs/configuration.md` and `.env.example`.
+
 ## [0.5.9] - 2026-02-15
 
 ### Added

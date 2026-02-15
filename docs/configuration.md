@@ -26,6 +26,9 @@ These are used by the Fastify REST API in `src/index.ts`.
 - **`YT_DLP_PROXY`** – optional proxy URL for all yt-dlp requests (subtitle download, video info, chapters, audio for Whisper). Supported schemes: `http://`, `https://`, `socks5://`. Examples: `http://user:password@proxy.example.com:8080`, `socks5://127.0.0.1:9050` (e.g. Tor). If unset, yt-dlp runs without a proxy. In Docker, set this in the container `environment` if needed.
 - **`YT_DLP_AUDIO_FORMAT`** – yt-dlp format selector for audio download (Whisper fallback). Default: `bestaudio[abr<=192]/bestaudio` (prefer streams ≤192 kbps to reduce download time; fallback to best audio). Keeps speech recognition quality while saving bandwidth.
 - **`YT_DLP_AUDIO_QUALITY`** – `--audio-quality` value (0–9) when converting to m4a for Whisper. Default: `5` (~128 kbps VBR). Lower number = higher quality and larger file; 5 is a good balance for transcription.
+- **`YT_DLP_MAX_FILESIZE`** – `--max-filesize` value (e.g. `50M`) for audio download (Whisper fallback). Aborts download if the file is larger than the specified size. Useful to avoid downloading very large videos when using Whisper.
+- **`YT_DLP_DOWNLOAD_ARCHIVE`** – Path to an archive file for `get_playlist_transcripts`. When set, yt-dlp skips videos already in the archive (`--download-archive`) and stops on first existing (`--break-on-existing`). Requires persistent storage.
+- **`YT_DLP_AGE_LIMIT`** – `--age-limit` value (e.g. `18`) for `search_videos`. Filters results by age rating.
 
 These values are read in `src/youtube.ts` and passed to yt-dlp (timeout, runtimes, proxy, audio format/quality). Startup checks are implemented in `src/yt-dlp-check.ts`.
 

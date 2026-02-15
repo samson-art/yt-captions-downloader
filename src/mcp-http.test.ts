@@ -121,6 +121,7 @@ describe('mcp-http', () => {
         'get_available_subtitles',
         'get_video_info',
         'get_video_chapters',
+        'get_playlist_transcripts',
         'search_videos',
       ]);
       const expectedTitles: Record<string, string> = {
@@ -129,6 +130,7 @@ describe('mcp-http', () => {
         get_available_subtitles: 'Get available subtitle languages',
         get_video_info: 'Get video info',
         get_video_chapters: 'Get video chapters',
+        get_playlist_transcripts: 'Get playlist transcripts',
         search_videos: 'Search videos',
       };
       for (const tool of body.tools) {

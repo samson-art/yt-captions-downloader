@@ -73,6 +73,101 @@ describe('mcp-core tools', () => {
     jest.clearAllMocks();
   });
 
+  describe('Use case: Search and transcript', () => {
+    it('search_videos returns results, get_transcript with url from first result returns text', async () => {
+      const server = createMcpServer() as any;
+      const searchHandler = getTool(server, 'search_videos');
+      const transcriptHandler = getTool(server, 'get_transcript');
+
+      const mockResults = [
+        {
+          videoId: 'vid1',
+          title: 'React Hooks Tutorial',
+          url: 'https://www.youtube.com/watch?v=vid1',
+          duration: 600,
+          uploader: 'Dev Channel',
+          viewCount: 5000,
+          thumbnail: null,
+        },
+      ];
+      searchVideosMock.mockResolvedValue(mockResults);
+
+      const searchResult = await searchHandler({ query: 'react hooks tutorial', limit: 5 }, {});
+
+      expect(searchResult.structuredContent.results).toEqual(mockResults);
+      const firstVideoUrl = mockResults[0].url;
+
+      normalizeVideoInputMock.mockReturnValue(firstVideoUrl);
+      validateAndDownloadSubtitlesMock.mockResolvedValue({
+        videoId: 'vid1',
+        type: 'auto',
+        lang: 'en',
+        subtitlesContent: '1\n00:00:00,000 --> 00:00:05,000\nIntroduction to hooks',
+        source: 'youtube',
+      });
+      parseSubtitlesMock.mockReturnValue('Introduction to hooks');
+
+      const transcriptResult = await transcriptHandler({ url: firstVideoUrl }, {});
+
+      expect(validateAndDownloadSubtitlesMock).toHaveBeenCalledWith(
+        { url: firstVideoUrl, type: undefined, lang: undefined },
+        expect.anything()
+      );
+      expect(transcriptResult.structuredContent).toMatchObject({
+        videoId: 'vid1',
+        text: 'Introduction to hooks',
+      });
+    });
+  });
+
+  describe('Use case: Pagination for long transcripts', () => {
+    const testUrl = 'https://www.youtube.com/watch?v=video123';
+    const longContent = 'abcdefghij'; // 10 chars, response_limit 6
+
+    it('get_raw_subtitles returns next_cursor; second call with next_cursor returns next chunk', async () => {
+      const server = createMcpServer() as any;
+      const handler = getTool(server, 'get_raw_subtitles');
+
+      normalizeVideoInputMock.mockReturnValue(testUrl);
+      sanitizeLangMock.mockReturnValue('en');
+      validateAndDownloadSubtitlesMock.mockResolvedValue({
+        videoId: 'video123',
+        type: 'official',
+        lang: 'en',
+        subtitlesContent: longContent,
+      });
+      detectSubtitleFormatMock.mockReturnValue('srt');
+
+      const first = await handler(
+        { url: testUrl, type: 'official', lang: 'en', response_limit: 6 },
+        {}
+      );
+
+      expect(first.structuredContent).toMatchObject({
+        content: 'abcdef',
+        is_truncated: true,
+        total_length: 10,
+        start_offset: 0,
+        end_offset: 6,
+        next_cursor: '6',
+      });
+
+      const second = await handler(
+        { url: testUrl, type: 'official', lang: 'en', response_limit: 6, next_cursor: '6' },
+        {}
+      );
+
+      expect(second.structuredContent).toMatchObject({
+        content: 'ghij',
+        is_truncated: false,
+        total_length: 10,
+        start_offset: 6,
+        end_offset: 10,
+      });
+      expect(second.structuredContent.next_cursor).toBeUndefined();
+    });
+  });
+
   describe('get_transcript', () => {
     const testUrl = 'https://www.youtube.com/watch?v=video123';
 
@@ -218,21 +313,27 @@ describe('mcp-core tools', () => {
     });
   });
 
-  describe('get_available_subtitles', () => {
-    const testUrl = 'https://www.youtube.com/watch?v=video123';
-
-    it('should return error for invalid video id', async () => {
+  describe('tools requiring video URL', () => {
+    it('return error when normalizeVideoInput returns null', async () => {
       const server = createMcpServer() as any;
-      const handler = getTool(server, 'get_available_subtitles');
-
       normalizeVideoInputMock.mockReturnValue(null);
 
-      const result = await handler({ url: 'invalid' }, {});
+      const avail = await getTool(server, 'get_available_subtitles')({ url: 'invalid' }, {});
+      const info = await getTool(server, 'get_video_info')({ url: 'invalid' }, {});
+      const chapters = await getTool(server, 'get_video_chapters')({ url: 'invalid' }, {});
 
-      expect(result).toMatchObject({ isError: true });
-      expect(result.content[0].text).toContain('Invalid video URL');
+      for (const result of [avail, info, chapters]) {
+        expect(result).toMatchObject({ isError: true });
+        expect(result.content[0].text).toContain('Invalid video URL');
+      }
       expect(validateAndFetchAvailableSubtitlesMock).not.toHaveBeenCalled();
+      expect(validateAndFetchVideoInfoMock).not.toHaveBeenCalled();
+      expect(validateAndFetchVideoChaptersMock).not.toHaveBeenCalled();
     });
+  });
+
+  describe('get_available_subtitles', () => {
+    const testUrl = 'https://www.youtube.com/watch?v=video123';
 
     it('should return structured list of subtitles', async () => {
       const server = createMcpServer() as any;
@@ -263,19 +364,6 @@ describe('mcp-core tools', () => {
 
   describe('get_video_info', () => {
     const testUrl = 'https://www.youtube.com/watch?v=video123';
-
-    it('should return error when video id cannot be resolved', async () => {
-      const server = createMcpServer() as any;
-      const handler = getTool(server, 'get_video_info');
-
-      normalizeVideoInputMock.mockReturnValue(null);
-
-      const result = await handler({ url: 'invalid' }, {});
-
-      expect(result).toMatchObject({ isError: true });
-      expect(result.content[0].text).toContain('Invalid video URL');
-      expect(validateAndFetchVideoInfoMock).not.toHaveBeenCalled();
-    });
 
     it('should return error when video info cannot be fetched', async () => {
       const server = createMcpServer() as any;
@@ -382,19 +470,6 @@ describe('mcp-core tools', () => {
 
   describe('get_video_chapters', () => {
     const testUrl = 'https://www.youtube.com/watch?v=video123';
-
-    it('should return error when video id cannot be resolved', async () => {
-      const server = createMcpServer() as any;
-      const handler = getTool(server, 'get_video_chapters');
-
-      normalizeVideoInputMock.mockReturnValue(null);
-
-      const result = await handler({ url: 'invalid' }, {});
-
-      expect(result).toMatchObject({ isError: true });
-      expect(result.content[0].text).toContain('Invalid video URL');
-      expect(validateAndFetchVideoChaptersMock).not.toHaveBeenCalled();
-    });
 
     it('should return error when chapters cannot be fetched', async () => {
       const server = createMcpServer() as any;

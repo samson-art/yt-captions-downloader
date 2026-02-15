@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.7] - 2026-02-15
+
+### Changed
+
+- **Unit tests optimized for real usage scenarios:** `mcp-core.test.ts` — added scenario tests "Use case: Search and transcript" (search_videos → get_transcript with url from first result) and "Use case: Pagination for long transcripts" (get_raw_subtitles with response_limit and next_cursor); consolidated duplicate "invalid URL" error tests into one "tools requiring video URL" test. `mcp-http.test.ts` — consolidated five server-card tests into one comprehensive test (tools, prompts, resources, SEP-1649, configSchema, Tool Quality); grouped `resolvePublicBaseUrlForRequest` tests by scenario (fallbacks, Host matching, X-Forwarded-Host, Smithery cf-worker).
+
 ## [0.5.6] - 2026-02-15
 
 ### Added

@@ -34,6 +34,21 @@ This repository primarily ships an **MCP server**:
 
 It also includes an optional **REST API** (Fastify), but MCP is the primary focus.
 
+## Quick Start (MCP URL / Smithery)
+
+1. Add the MCP server URL to your client (e.g. Smithery, Cursor SSE).
+2. No config required — the server works with official subtitles out of the box.
+
+**Minimal config:** None. Connect and use `get_transcript` or `get_video_info`.
+
+**Example config** (when auth is required):
+
+```json
+{
+  "authToken": "your-token-from-server-admin"
+}
+```
+
 ## Features
 
 - **Transcripts + raw subtitles**: cleaned text or raw SRT/VTT.
@@ -486,6 +501,8 @@ The app version is read from `package.json` at runtime ([`src/version.ts`](src/v
 - **Prettier** - Code formatting
 
 ## Security
+
+**Data and keys:** Video URLs are sent to yt-dlp for subtitle extraction. Keys and tokens are stored only in your environment; we never log or share them.
 
 Do not commit or log sensitive values. Use environment variables or a secret manager (e.g. vault, cloud secrets) for:
 

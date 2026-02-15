@@ -49,7 +49,9 @@ describe('mcp-auth', () => {
       const reply = mockReply();
       expect(ensureAuth(request, reply, 'secret-token')).toBe(false);
       expect(reply._sent.code).toBe(401);
-      expect(reply._sent.body).toEqual({ error: 'Unauthorized' });
+      const body = reply._sent.body as { error: string; message: string };
+      expect(body.error).toBe('Unauthorized');
+      expect(body.message).toContain('authToken');
     });
 
     it('returns false and sends 401 when scheme is not Bearer', () => {

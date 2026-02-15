@@ -135,7 +135,7 @@ export const MCP_SESSION_CONFIG_SCHEMA = {
       type: 'string',
       title: 'Bearer token',
       description:
-        'Bearer token for the MCP HTTP endpoint. Only needed when the server is deployed with MCP_AUTH_TOKEN set. The gateway sends this as the Authorization header to your server.',
+        'Auth token for protected servers. Only needed when the server uses MCP_AUTH_TOKEN. Stored locally by your client; never logged or shared.',
       secret: true,
       'x-from': { header: 'x-mcp-auth-token' },
       'x-to': { header: 'Authorization' },

@@ -22,27 +22,30 @@ export function ensureAuth(
     return true;
   }
 
+  const UNAUTHORIZED_MESSAGE =
+    'This server requires authToken. Set it in your MCP client config (e.g. Smithery). Your server administrator provides the token when MCP_AUTH_TOKEN is configured.';
+
   const header = getHeaderValue(request.headers.authorization);
   if (!header) {
-    reply.code(401).send({ error: 'Unauthorized' });
+    reply.code(401).send({ error: 'Unauthorized', message: UNAUTHORIZED_MESSAGE });
     return false;
   }
 
   const [scheme, token] = header.split(' ');
   if (scheme?.toLowerCase() !== 'bearer' || !token) {
-    reply.code(401).send({ error: 'Unauthorized' });
+    reply.code(401).send({ error: 'Unauthorized', message: UNAUTHORIZED_MESSAGE });
     return false;
   }
 
   if (token.length !== authToken.length) {
-    reply.code(401).send({ error: 'Unauthorized' });
+    reply.code(401).send({ error: 'Unauthorized', message: UNAUTHORIZED_MESSAGE });
     return false;
   }
 
   const tokenBuf = Buffer.from(token, 'utf8');
   const expectedBuf = Buffer.from(authToken, 'utf8');
   if (!timingSafeEqual(tokenBuf, expectedBuf)) {
-    reply.code(401).send({ error: 'Unauthorized' });
+    reply.code(401).send({ error: 'Unauthorized', message: UNAUTHORIZED_MESSAGE });
     return false;
   }
 

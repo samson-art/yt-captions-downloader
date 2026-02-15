@@ -232,7 +232,9 @@ describe('mcp-http', () => {
       });
 
       expect(response.statusCode).toBe(401);
-      expect(response.json()).toEqual({ error: 'Unauthorized' });
+      const body = response.json();
+      expect(body.error).toBe('Unauthorized');
+      expect(body.message).toContain('authToken');
     });
 
     it('returns 401 for /mcp when token is wrong', async () => {

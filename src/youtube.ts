@@ -113,19 +113,49 @@ export function extractYouTubeVideoId(url: string): string | null {
 /** @deprecated Use extractYouTubeVideoId. Kept for backward compatibility. */
 export const extractVideoId = extractYouTubeVideoId;
 
+/** Supported subtitle formats for yt-dlp and output. */
+export type SubtitleFormat = 'srt' | 'vtt' | 'ass' | 'lrc';
+
+const SUBTITLE_EXTENSIONS: SubtitleFormat[] = ['srt', 'vtt', 'ass', 'lrc'];
+
+const SUB_EXTENSIONS = ['.srt', '.vtt', '.ass', '.lrc'] as const;
+
+/** Resolves subtitle format: param/env overrides, default srt. */
+export function resolveSubtitleFormat(formatParam?: SubtitleFormat | null): SubtitleFormat {
+  const fromParam =
+    formatParam ?? (process.env.YT_DLP_SUB_FORMAT?.trim() as SubtitleFormat | undefined);
+  if (fromParam && SUBTITLE_EXTENSIONS.includes(fromParam)) {
+    return fromParam;
+  }
+  return 'srt';
+}
+
+/** Builds --sub-format and optionally --convert-subs args for yt-dlp. */
+function buildSubFormatArgs(format: SubtitleFormat): string[] {
+  const args: string[] = [];
+  args.push('--sub-format', format === 'lrc' ? 'best' : format);
+  if (format === 'lrc') {
+    args.push('--convert-subs', 'lrc');
+  }
+  return args;
+}
+
 /**
  * Downloads subtitles using yt-dlp
  * @param url - Video URL (any supported platform)
  * @param type - subtitle type: 'official' or 'auto'
  * @param lang - subtitle language (e.g., 'en', 'ru')
+ * @param format - subtitle format: srt, vtt, ass, lrc (default from YT_DLP_SUB_FORMAT or srt)
  * @param logger - Fastify logger instance for structured logging
  */
 export async function downloadSubtitles(
   url: string,
   type: 'official' | 'auto' = 'auto',
   lang: string = 'en',
+  format?: SubtitleFormat | null,
   logger?: FastifyBaseLogger
 ): Promise<string | null> {
+  const subFormat = resolveSubtitleFormat(format);
   const tempDir = tmpdir();
   const outputPath = join(tempDir, urlToSafeBase(url, 'subtitles'));
   const { jsRuntimes, remoteComponents, cookiesFilePathFromEnv } = getYtDlpEnv();
@@ -146,8 +176,7 @@ export async function downloadSubtitles(
       '--skip-download',
       '--sub-lang',
       lang,
-      '--sub-format',
-      'srt/vtt',
+      ...buildSubFormatArgs(subFormat),
       '--output',
       `${outputPath}.%(ext)s`,
       '--no-playlist',
@@ -159,9 +188,10 @@ export async function downloadSubtitles(
       remoteComponents,
       cookiesFilePathFromEnv: cookiesPathToUse,
     });
+    appendYtDlpSubtitleArgs(args);
 
     logger?.info(
-      { type, lang, hasCookies: Boolean(cookiesFilePathFromEnv) },
+      { type, lang, format: subFormat, hasCookies: Boolean(cookiesFilePathFromEnv) },
       `Downloading ${type} subtitles in language ${lang}`
     );
 
@@ -178,7 +208,7 @@ export async function downloadSubtitles(
 
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      const subtitleFile = await findSubtitleFile(outputPath, tempDir, logger);
+      const subtitleFile = await findSubtitleFile(outputPath, tempDir, subFormat, logger);
 
       if (subtitleFile) {
         const content = await readFile(subtitleFile, 'utf-8');
@@ -203,7 +233,7 @@ export async function downloadSubtitles(
       logger?.debug('Checking for subtitle file despite error...');
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      const subtitleFile = await findSubtitleFile(outputPath, tempDir, logger);
+      const subtitleFile = await findSubtitleFile(outputPath, tempDir, subFormat, logger);
       logger?.debug({ subtitleFile }, 'subtitleFile found after error');
 
       if (subtitleFile) {
@@ -237,6 +267,8 @@ export type PlaylistSubtitlesResult = {
 export type DownloadPlaylistSubtitlesOptions = {
   type?: 'official' | 'auto';
   lang?: string;
+  /** Subtitle format: srt, vtt, ass, lrc (default from YT_DLP_SUB_FORMAT or srt) */
+  format?: SubtitleFormat | null;
   /** yt-dlp -I/--playlist-items, e.g. "1:5", "1,3,7", "-1" */
   playlistItems?: string;
   /** yt-dlp --max-downloads */
@@ -255,7 +287,8 @@ export async function downloadPlaylistSubtitles(
   options: DownloadPlaylistSubtitlesOptions = {},
   logger?: FastifyBaseLogger
 ): Promise<PlaylistSubtitlesResult[] | null> {
-  const { type = 'auto', lang = 'en', playlistItems, maxItems } = options;
+  const { type = 'auto', lang = 'en', format, playlistItems, maxItems } = options;
+  const subFormat = resolveSubtitleFormat(format);
   const tempDir = join(
     tmpdir(),
     `playlist_subs_${Date.now()}_${Math.random().toString(36).slice(2)}`
@@ -283,8 +316,7 @@ export async function downloadPlaylistSubtitles(
       '--skip-download',
       '--sub-lang',
       lang,
-      '--sub-format',
-      'srt/vtt',
+      ...buildSubFormatArgs(subFormat),
       '--output',
       outputTemplate,
       '--yes-playlist',
@@ -306,9 +338,17 @@ export async function downloadPlaylistSubtitles(
       remoteComponents,
       cookiesFilePathFromEnv: cookiesPathToUse,
     });
+    appendYtDlpSubtitleArgs(args);
 
     logger?.info(
-      { type, lang, playlistItems, maxItems, hasCookies: Boolean(cookiesFilePathFromEnv) },
+      {
+        type,
+        lang,
+        format: subFormat,
+        playlistItems,
+        maxItems,
+        hasCookies: Boolean(cookiesFilePathFromEnv),
+      },
       'Downloading playlist subtitles via yt-dlp'
     );
 
@@ -327,16 +367,17 @@ export async function downloadPlaylistSubtitles(
     await new Promise((resolve) => setTimeout(resolve, 200));
 
     const files = await readdir(tempDir);
-    const subtitleFiles = files.filter((f) => f.endsWith('.srt') || f.endsWith('.vtt'));
+    const subtitleFiles = files.filter((f) => SUB_EXTENSIONS.some((e) => f.endsWith(e)));
     const results: PlaylistSubtitlesResult[] = [];
 
     for (const file of subtitleFiles) {
       const parts = file.split('.');
       if (parts.length < 3) continue;
-      const ext = parts.pop()!;
+      const ext = parts.pop()!.toLowerCase();
       parts.pop();
       const videoId = parts.join('.');
-      if (!videoId || !['srt', 'vtt'].includes(ext)) continue;
+      const validExts = SUB_EXTENSIONS.map((e) => e.slice(1));
+      if (!videoId || !validExts.includes(ext)) continue;
 
       const filePath = join(tempDir, file);
       try {
@@ -471,7 +512,7 @@ export async function downloadAudio(
   const tempDir = tmpdir();
   const outputBase = join(tempDir, urlToSafeBase(url, 'audio'));
   const outputTemplate = `${outputBase}.%(ext)s`;
-  const { jsRuntimes, remoteComponents, cookiesFilePathFromEnv } = getYtDlpEnv();
+  const { jsRuntimes, remoteComponents, cookiesFilePathFromEnv, proxyFromEnv } = getYtDlpEnv();
 
   let cookiesPathToUse = cookiesFilePathFromEnv;
   let cookiesCleanup: (() => Promise<void>) | undefined;
@@ -511,7 +552,10 @@ export async function downloadAudio(
     jsRuntimes,
     remoteComponents,
     cookiesFilePathFromEnv: cookiesPathToUse,
+    proxyFromEnv,
   });
+
+  appendYtDlpAudioArgs(args);
 
   try {
     await logCookiesFileStatus(logger, cookiesFilePathFromEnv);
@@ -555,9 +599,14 @@ export async function downloadAudio(
   }
 }
 
+function hasSubtitleExtension(file: string): boolean {
+  return SUB_EXTENSIONS.some((ext) => file.endsWith(ext));
+}
+
 /**
  * Finds subtitle file in the specified directory
- * yt-dlp creates files in format: baseName.language.srt or baseName.language.vtt
+ * yt-dlp creates files in format: baseName.language.ext (e.g. baseName.auto.en.srt)
+ * @param format - preferred format; when set, looks for that extension first
  * @param logger - Fastify logger instance for structured logging
  *
  * Exported for testing.
@@ -565,6 +614,7 @@ export async function downloadAudio(
 export async function findSubtitleFile(
   basePath: string,
   searchDir?: string,
+  format?: SubtitleFormat,
   logger?: FastifyBaseLogger
 ): Promise<string | null> {
   const { readdir } = await import('node:fs/promises');
@@ -574,36 +624,31 @@ export async function findSubtitleFile(
     const dir = searchDir || dirname(basePath);
     const baseName = basename(basePath);
     const files = await readdir(dir);
+    const extOrder = format
+      ? [`.${format}`, ...SUB_EXTENSIONS.filter((e) => e !== `.${format}`)]
+      : SUB_EXTENSIONS;
 
     logger?.debug(
       {
         dir,
         baseName,
-        subtitleFiles: files.filter((f) => f.endsWith('.srt') || f.endsWith('.vtt')),
+        subtitleFiles: files.filter(hasSubtitleExtension),
       },
       'Searching for subtitle file'
     );
 
-    // yt-dlp creates files in format: baseName.language.srt or baseName.language.vtt
-    // For example: subtitles_VIDEO_ID_TIMESTAMP_auto.en.srt
-    // Search for files with .srt or .vtt extensions that start with baseName
-    const subtitleFile = files.find((file) => {
-      const startsWithBase = file.startsWith(baseName);
-      const hasSubtitleExt = file.endsWith('.srt') || file.endsWith('.vtt');
-      return startsWithBase && hasSubtitleExt;
-    });
+    const candidateFiles = files.filter(
+      (file) => file.startsWith(baseName) && hasSubtitleExtension(file)
+    );
+    const subtitleFile =
+      candidateFiles.find((file) => extOrder.some((ext) => file.endsWith(ext))) ??
+      candidateFiles[0];
 
-    // If exact match not found, try to find files that contain baseName
-    // (in case the name format is slightly different)
-    let resultPath: string | null = null;
-    if (subtitleFile) {
-      resultPath = join(dir, subtitleFile);
-    } else {
-      const alternativeFile = files.find((file) => {
-        const hasSubtitleExt = file.endsWith('.srt') || file.endsWith('.vtt');
-        const containsBaseName = file.includes(baseName);
-        return hasSubtitleExt && containsBaseName;
-      });
+    let resultPath: string | null = subtitleFile ? join(dir, subtitleFile) : null;
+    if (!resultPath) {
+      const alternativeFile = files.find(
+        (file) => hasSubtitleExtension(file) && file.includes(baseName)
+      );
       if (alternativeFile) {
         resultPath = join(dir, alternativeFile);
       }
@@ -693,6 +738,12 @@ export function appendYtDlpEnvArgs(
     proxyFromEnv?: string;
   }
 ) {
+  args.splice(-1, 0, '--no-progress', '--quiet');
+
+  if (process.env.YT_DLP_NO_WARNINGS === '1') {
+    args.splice(-1, 0, '--no-warnings');
+  }
+
   if (env.cookiesFilePathFromEnv) {
     args.splice(-1, 0, '--cookies', env.cookiesFilePathFromEnv);
   }
@@ -707,6 +758,102 @@ export function appendYtDlpEnvArgs(
 
   if (env.remoteComponents) {
     args.splice(-1, 0, '--remote-components', env.remoteComponents);
+  }
+
+  const retries = process.env.YT_DLP_RETRIES?.trim();
+  if (retries) {
+    args.splice(-1, 0, '-R', retries);
+  }
+
+  const retrySleep = process.env.YT_DLP_RETRY_SLEEP?.trim();
+  if (retrySleep) {
+    args.splice(-1, 0, '--retry-sleep', retrySleep);
+  }
+
+  const sleepRequests = process.env.YT_DLP_SLEEP_REQUESTS?.trim();
+  if (sleepRequests) {
+    args.splice(-1, 0, '--sleep-requests', sleepRequests);
+  }
+
+  const sleepInterval = process.env.YT_DLP_SLEEP_INTERVAL?.trim();
+  if (sleepInterval) {
+    args.splice(-1, 0, '--sleep-interval', sleepInterval);
+  }
+
+  const maxSleepInterval = process.env.YT_DLP_MAX_SLEEP_INTERVAL?.trim();
+  if (maxSleepInterval) {
+    args.splice(-1, 0, '--max-sleep-interval', maxSleepInterval);
+  }
+
+  const sleepSubtitles = process.env.YT_DLP_SLEEP_SUBTITLES?.trim();
+  if (sleepSubtitles) {
+    args.splice(-1, 0, '--sleep-subtitles', sleepSubtitles);
+  }
+
+  const extraArgs = process.env.YT_DLP_EXTRA_ARGS?.trim();
+  if (extraArgs) {
+    const parts = extraArgs.split(/\s+/).filter((p) => p.length > 0);
+    for (let i = parts.length - 1; i >= 0; i--) {
+      args.splice(-1, 0, parts[i]);
+    }
+  }
+}
+
+/**
+ * Appends audio-specific yt-dlp args from env (for Whisper fallback).
+ * Called only from downloadAudio. Exported for testing.
+ */
+export function appendYtDlpAudioArgs(args: string[]) {
+  const frags = process.env.YT_DLP_AUDIO_CONCURRENT_FRAGMENTS?.trim();
+  if (frags) {
+    args.splice(-1, 0, '-N', frags);
+  }
+  const limitRate = process.env.YT_DLP_AUDIO_LIMIT_RATE?.trim();
+  if (limitRate) {
+    args.splice(-1, 0, '-r', limitRate);
+  }
+  const throttledRate = process.env.YT_DLP_AUDIO_THROTTLED_RATE?.trim();
+  if (throttledRate) {
+    args.splice(-1, 0, '--throttled-rate', throttledRate);
+  }
+  const retries = process.env.YT_DLP_AUDIO_RETRIES?.trim();
+  if (retries) {
+    args.splice(-1, 0, '-R', retries);
+  }
+  const fragmentRetries = process.env.YT_DLP_AUDIO_FRAGMENT_RETRIES?.trim();
+  if (fragmentRetries) {
+    args.splice(-1, 0, '--fragment-retries', fragmentRetries);
+  }
+  const retrySleep = process.env.YT_DLP_AUDIO_RETRY_SLEEP?.trim();
+  if (retrySleep) {
+    args.splice(-1, 0, '--retry-sleep', retrySleep);
+  }
+  const bufferSize = process.env.YT_DLP_AUDIO_BUFFER_SIZE?.trim();
+  if (bufferSize) {
+    args.splice(-1, 0, '--buffer-size', bufferSize);
+  }
+  const httpChunkSize = process.env.YT_DLP_AUDIO_HTTP_CHUNK_SIZE?.trim();
+  if (httpChunkSize) {
+    args.splice(-1, 0, '--http-chunk-size', httpChunkSize);
+  }
+  const downloader = process.env.YT_DLP_AUDIO_DOWNLOADER?.trim();
+  if (downloader) {
+    args.splice(-1, 0, '--downloader', downloader);
+  }
+  const downloaderArgs = process.env.YT_DLP_AUDIO_DOWNLOADER_ARGS?.trim();
+  if (downloaderArgs) {
+    args.splice(-1, 0, '--downloader-args', downloaderArgs);
+  }
+}
+
+/**
+ * Appends subtitle-specific yt-dlp args from env (encoding).
+ * Called only from downloadSubtitles and downloadPlaylistSubtitles.
+ */
+export function appendYtDlpSubtitleArgs(args: string[]) {
+  const encoding = process.env.YT_DLP_ENCODING?.trim();
+  if (encoding) {
+    args.splice(-1, 0, '--encoding', encoding);
   }
 }
 
@@ -891,6 +1038,9 @@ export async function fetchYtDlpJson(
   }
 
   const args = ['--dump-single-json', '--skip-download', '--no-playlist', url];
+  if (process.env.YT_DLP_IGNORE_NO_FORMATS !== '0') {
+    args.splice(-1, 0, '--ignore-no-formats-error');
+  }
   appendYtDlpEnvArgs(args, {
     jsRuntimes,
     remoteComponents,
@@ -946,14 +1096,18 @@ export async function fetchYtDlpJson(
 /**
  * Detects subtitle format by content
  * @param content - subtitle file content
- * @returns 'vtt' if format is VTT, otherwise 'srt'
+ * @returns detected format: srt, vtt, ass, or lrc
  */
-export function detectSubtitleFormat(content: string): 'srt' | 'vtt' {
-  return content.startsWith('WEBVTT') ? 'vtt' : 'srt';
+export function detectSubtitleFormat(content: string): SubtitleFormat {
+  const trimmed = content.trim();
+  if (trimmed.startsWith('WEBVTT')) return 'vtt';
+  if (/^\[Script Info\]|^\[V4\+ Styles\]|^\[Events\]/m.test(trimmed)) return 'ass';
+  if (/^\[\d{1,2}:\d{2}(?:\.\d{2,3})?\]/m.test(trimmed)) return 'lrc';
+  return 'srt';
 }
 
 /**
- * Parses subtitles (SRT or VTT) and returns plain text without timestamps
+ * Parses subtitles (SRT, VTT, ASS, or LRC) and returns plain text without timestamps
  * @param content - subtitle content
  * @param logger - Fastify logger instance for structured logging
  */
@@ -965,6 +1119,10 @@ export function parseSubtitles(content: string, logger?: FastifyBaseLogger): str
       return parseVTT(content, logger);
     case 'srt':
       return parseSRT(content, logger);
+    case 'ass':
+      return parseASS(content, logger);
+    case 'lrc':
+      return parseLRC(content, logger);
     default:
       throw new Error(`Unsupported subtitle format: ${format}`);
   }
@@ -1098,6 +1256,56 @@ function parseVTT(content: string, logger?: FastifyBaseLogger): string {
     }
 
     i++;
+  }
+
+  return textLines.join(' ');
+}
+
+/**
+ * Parses ASS (Advanced SubStation Alpha) format - extracts Dialogue text
+ */
+function parseASS(content: string, logger?: FastifyBaseLogger): string {
+  logger?.debug('Parsing ASS content');
+  const lines = content.split('\n');
+  const textLines: string[] = [];
+  let inEvents = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('[Events]')) {
+      inEvents = true;
+      continue;
+    }
+    if (inEvents && trimmed.startsWith('Dialogue:')) {
+      const commaIdx = trimmed.indexOf(',', 'Dialogue:'.length);
+      let rest = commaIdx >= 0 ? trimmed.slice(commaIdx + 1) : '';
+      for (let i = 0; i < 9 && rest; i++) {
+        const next = rest.indexOf(',');
+        rest = next >= 0 ? rest.slice(next + 1) : rest;
+      }
+      const text = rest.replace(/\\N/g, ' ').replace(/\\n/g, ' ').trim();
+      const cleaned = cleanSubtitleLine(text);
+      if (cleaned.length > 0) textLines.push(cleaned);
+    }
+  }
+
+  return textLines.join(' ');
+}
+
+/**
+ * Parses LRC (lyrics) format - [mm:ss.xx] or [mm:ss] followed by text
+ */
+function parseLRC(content: string, logger?: FastifyBaseLogger): string {
+  logger?.debug('Parsing LRC content');
+  const lines = content.split('\n');
+  const textLines: string[] = [];
+
+  for (const line of lines) {
+    const match = line.match(/^\[\d{1,2}:\d{2}(?:\.\d{2,3})?\]\s*(.+)$/);
+    if (match && match[1]) {
+      const cleaned = cleanSubtitleLine(match[1]);
+      if (cleaned.length > 0) textLines.push(cleaned);
+    }
   }
 
   return textLines.join(' ');

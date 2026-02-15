@@ -48,6 +48,10 @@ const baseInputSchema = z.object({
     .describe(
       'Video URL (supported: YouTube, Twitter/X, Instagram, TikTok, Twitch, Vimeo, Facebook, Bilibili, VK, Dailymotion) or YouTube video ID'
     ),
+  format: z
+    .enum(['srt', 'vtt', 'ass', 'lrc'])
+    .optional()
+    .describe('Subtitle format (default from YT_DLP_SUB_FORMAT or srt)'),
 });
 
 const subtitleInputSchema = baseInputSchema.extend({
@@ -91,7 +95,7 @@ const rawSubtitlesOutputSchema = z.object({
   videoId: z.string(),
   type: z.enum(['official', 'auto']),
   lang: z.string(),
-  format: z.enum(['srt', 'vtt']),
+  format: z.enum(['srt', 'vtt', 'ass', 'lrc']),
   content: z.string(),
   next_cursor: z.string().optional(),
   is_truncated: z.boolean(),
@@ -172,6 +176,10 @@ const playlistTranscriptsInputSchema = z.object({
     .optional()
     .describe('Subtitle track type: official or auto-generated (default: auto)'),
   lang: z.string().optional().describe('Language code (e.g. en, ru). Default: en'),
+  format: z
+    .enum(['srt', 'vtt', 'ass', 'lrc'])
+    .optional()
+    .describe('Subtitle format (default from YT_DLP_SUB_FORMAT or srt)'),
   playlistItems: z
     .string()
     .optional()
@@ -274,7 +282,7 @@ export function createMcpServer(opts?: CreateMcpServerOptions) {
       let result: Awaited<ReturnType<typeof validateAndDownloadSubtitles>>;
       try {
         result = await validateAndDownloadSubtitles(
-          { url: resolved.url, type: resolved.type, lang: resolved.lang },
+          { url: resolved.url, type: resolved.type, lang: resolved.lang, format: resolved.format },
           log
         );
       } catch (err) {
@@ -348,7 +356,7 @@ export function createMcpServer(opts?: CreateMcpServerOptions) {
       let result: Awaited<ReturnType<typeof validateAndDownloadSubtitles>>;
       try {
         result = await validateAndDownloadSubtitles(
-          { url: resolved.url, type: resolved.type, lang: resolved.lang },
+          { url: resolved.url, type: resolved.type, lang: resolved.lang, format: resolved.format },
           log
         );
       } catch (err) {
@@ -616,6 +624,8 @@ export function createMcpServer(opts?: CreateMcpServerOptions) {
 
       const lang = args.lang ? (sanitizeLang(args.lang) ?? 'en') : 'en';
 
+      const format =
+        args.format && ['srt', 'vtt', 'ass', 'lrc'].includes(args.format) ? args.format : undefined;
       let rawResults: Awaited<ReturnType<typeof downloadPlaylistSubtitles>>;
       try {
         rawResults = await downloadPlaylistSubtitles(
@@ -623,6 +633,7 @@ export function createMcpServer(opts?: CreateMcpServerOptions) {
           {
             type: args.type ?? 'auto',
             lang,
+            format,
             playlistItems: args.playlistItems,
             maxItems: args.maxItems,
           },
@@ -941,15 +952,20 @@ export function createMcpServer(opts?: CreateMcpServerOptions) {
   return server;
 }
 
-function resolveTranscriptArgs(args: { url: string }) {
+function resolveTranscriptArgs(args: { url: string; format?: string }) {
   const url = resolveVideoUrl(args.url);
   if (!url) {
     throw new Error('Invalid video URL. Use a URL from a supported platform or YouTube video ID.');
   }
+  const format =
+    args.format && ['srt', 'vtt', 'ass', 'lrc'].includes(args.format)
+      ? (args.format as 'srt' | 'vtt' | 'ass' | 'lrc')
+      : undefined;
   return {
     url,
     type: undefined,
     lang: undefined,
+    format,
     responseLimit: DEFAULT_RESPONSE_LIMIT,
     nextCursor: undefined,
   };
@@ -984,8 +1000,10 @@ function resolveSubtitleArgs(args: z.infer<typeof subtitleInputSchema>) {
 
   const responseLimit = args.response_limit ?? DEFAULT_RESPONSE_LIMIT;
   const nextCursor = args.next_cursor;
+  const format =
+    args.format && ['srt', 'vtt', 'ass', 'lrc'].includes(args.format) ? args.format : undefined;
 
-  return { url, type, lang, responseLimit, nextCursor };
+  return { url, type, lang, format, responseLimit, nextCursor };
 }
 
 function resolveVideoUrl(input: string): string | null {

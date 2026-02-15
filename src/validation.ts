@@ -7,6 +7,7 @@ import {
   fetchVideoInfo,
   fetchVideoChapters,
   fetchYtDlpJson,
+  type SubtitleFormat,
 } from './youtube.js';
 import { getWhisperConfig, transcribeWithWhisper } from './whisper.js';
 import { getCacheConfig, get, set } from './cache.js';
@@ -67,6 +68,14 @@ export const GetSubtitlesRequestSchema = Type.Object({
       maxLength: 10,
       description: 'Language code (e.g., en, ru, en-US). Omit with type for auto-discovery.',
     })
+  ),
+  format: Type.Optional(
+    Type.Union(
+      [Type.Literal('srt'), Type.Literal('vtt'), Type.Literal('ass'), Type.Literal('lrc')],
+      {
+        description: 'Subtitle format: srt, vtt, ass, lrc. Default from YT_DLP_SUB_FORMAT or srt.',
+      }
+    )
   ),
 });
 
@@ -296,6 +305,7 @@ function orderAutoForYouTube(auto: string[]): string[] {
  */
 async function downloadWithAutoDiscover(
   url: string,
+  format?: SubtitleFormat,
   logger?: FastifyBaseLogger
 ): Promise<{
   videoId: string;
@@ -310,7 +320,7 @@ async function downloadWithAutoDiscover(
 
   // 1. Try official subtitles
   for (const lang of official) {
-    const content = await downloadSubtitles(url, 'official', lang, logger);
+    const content = await downloadSubtitles(url, 'official', lang, format, logger);
     if (content && content.trim().length > 0) {
       return {
         videoId,
@@ -325,7 +335,7 @@ async function downloadWithAutoDiscover(
   // 2. Try auto subtitles (for YouTube: -orig first)
   const orderedAuto = isYouTube ? orderAutoForYouTube(auto) : auto;
   for (const lang of orderedAuto) {
-    const content = await downloadSubtitles(url, 'auto', lang, logger);
+    const content = await downloadSubtitles(url, 'auto', lang, format, logger);
     if (content && content.trim().length > 0) {
       return {
         videoId,
@@ -377,8 +387,9 @@ export async function validateAndDownloadSubtitles(
   const { url } = validated;
 
   if (shouldAutoDiscoverSubtitles(request)) {
+    const format = request.format as SubtitleFormat | undefined;
     const cacheConfig = getCacheConfig();
-    const cacheKey = `sub:${url}:auto-discovery`;
+    const cacheKey = `sub:${url}:auto-discovery:${format ?? 'default'}`;
     const cached = await get(cacheKey);
     if (cached !== undefined) {
       recordCacheHit();
@@ -392,7 +403,7 @@ export async function validateAndDownloadSubtitles(
     }
     recordCacheMiss();
 
-    const result = await downloadWithAutoDiscover(url, logger);
+    const result = await downloadWithAutoDiscover(url, format, logger);
     if (!result) {
       if (getWhisperConfig().mode !== 'off') {
         recordSubtitlesFailure(url);
@@ -409,6 +420,7 @@ export async function validateAndDownloadSubtitles(
 
   const type = request.type ?? 'auto';
   const lang = request.lang ?? 'en';
+  const format = request.format as SubtitleFormat | undefined;
 
   const sanitizedLang = sanitizeLang(lang);
   if (!sanitizedLang) {
@@ -416,7 +428,7 @@ export async function validateAndDownloadSubtitles(
   }
 
   const cacheConfig = getCacheConfig();
-  const cacheKey = `sub:${url}:${type}:${sanitizedLang}`;
+  const cacheKey = `sub:${url}:${type}:${sanitizedLang}:${format ?? 'default'}`;
   const cached = await get(cacheKey);
   if (cached !== undefined) {
     recordCacheHit();
@@ -430,7 +442,7 @@ export async function validateAndDownloadSubtitles(
   }
   recordCacheMiss();
 
-  let subtitlesContent = await downloadSubtitles(url, type, sanitizedLang, logger);
+  let subtitlesContent = await downloadSubtitles(url, type, sanitizedLang, format, logger);
   let source: 'youtube' | 'whisper' = 'youtube';
 
   if (!subtitlesContent) {

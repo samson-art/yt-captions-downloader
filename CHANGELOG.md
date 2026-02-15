@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-02-15
+
+### Added
+
+- **Configurable subtitle format (srt, vtt, ass, lrc):** New env **`YT_DLP_SUB_FORMAT`** and optional **`format`** parameter for MCP tools `get_transcript`, `get_raw_subtitles`, and `get_playlist_transcripts`. REST API `POST /subtitles` accepts `format`. Default remains `srt`. Cache keys include format. Exported `SubtitleFormat` and `resolveSubtitleFormat()` in `src/youtube.ts`; `get_raw_subtitles` output schema and server card include `ass` and `lrc`.
+- **yt-dlp retries and extra args (all calls):** **`YT_DLP_RETRIES`** (`-R`), **`YT_DLP_RETRY_SLEEP`** (e.g. `linear=1::2`), **`YT_DLP_EXTRA_ARGS`** (space-separated). Documented in `docs/configuration.md` and `.env.example`.
+- **yt-dlp sleep options (rate limits):** **`YT_DLP_SLEEP_REQUESTS`**, **`YT_DLP_SLEEP_INTERVAL`**, **`YT_DLP_MAX_SLEEP_INTERVAL`**, **`YT_DLP_SLEEP_SUBTITLES`**. Documented in `docs/configuration.md` and `.env.example`.
+- **yt-dlp subtitle encoding:** **`YT_DLP_ENCODING`** (e.g. `utf-8`, `cp1251`) for subtitle downloads (`--encoding`).
+- **yt-dlp audio download options (Whisper only):** **`YT_DLP_AUDIO_CONCURRENT_FRAGMENTS`** (`-N`), **`YT_DLP_AUDIO_LIMIT_RATE`**, **`YT_DLP_AUDIO_THROTTLED_RATE`**, **`YT_DLP_AUDIO_RETRIES`**, **`YT_DLP_AUDIO_FRAGMENT_RETRIES`**, **`YT_DLP_AUDIO_RETRY_SLEEP`**, **`YT_DLP_AUDIO_BUFFER_SIZE`**, **`YT_DLP_AUDIO_HTTP_CHUNK_SIZE`**, **`YT_DLP_AUDIO_DOWNLOADER`**, **`YT_DLP_AUDIO_DOWNLOADER_ARGS`** for DASH/HLS reliability and speed. Documented in `docs/configuration.md` and `.env.example`.
+- **`YT_DLP_NO_WARNINGS`:** When set to `1`, pass `--no-warnings` to all yt-dlp calls. Reduces log noise.
+- **`YT_DLP_IGNORE_NO_FORMATS`:** When not set to `0`, pass `--ignore-no-formats-error` when fetching video metadata (info, chapters, available subtitles), so region-locked or undownloadable videos still return metadata. Set to `0` to fail on "No video formats" (default yt-dlp behavior). Documented in `docs/configuration.md`.
+
+### Changed
+
+- **yt-dlp headless behavior:** All yt-dlp calls now pass `--quiet` and `--no-progress` for cleaner server logs. `appendYtDlpSubtitleArgs()` in `src/youtube.ts` applies common subtitle args; unit tests in `youtube.test.ts` and `validation.test.ts` updated for format and new env vars.
+
 ## [0.6.0] - 2026-02-15
 
 ### Added

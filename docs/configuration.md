@@ -29,8 +29,43 @@ These are used by the Fastify REST API in `src/index.ts`.
 - **`YT_DLP_MAX_FILESIZE`** – `--max-filesize` value (e.g. `50M`) for audio download (Whisper fallback). Aborts download if the file is larger than the specified size. Useful to avoid downloading very large videos when using Whisper.
 - **`YT_DLP_DOWNLOAD_ARCHIVE`** – Path to an archive file for `get_playlist_transcripts`. When set, yt-dlp skips videos already in the archive (`--download-archive`) and stops on first existing (`--break-on-existing`). Requires persistent storage.
 - **`YT_DLP_AGE_LIMIT`** – `--age-limit` value (e.g. `18`) for `search_videos`. Filters results by age rating.
+- **`YT_DLP_NO_WARNINGS`** – if set to `1`, pass `--no-warnings` to all yt-dlp calls. Reduces log noise; may hide useful warnings (e.g. outdated extractor).
+- **`YT_DLP_IGNORE_NO_FORMATS`** – when not set to `0`, pass `--ignore-no-formats-error` when fetching video metadata (video info, chapters, available subtitles). Allows returning metadata for region-locked or otherwise undownloadable videos. Set to `0` to fail on "No video formats" (default yt-dlp behavior).
 
-These values are read in `src/youtube.ts` and passed to yt-dlp (timeout, runtimes, proxy, audio format/quality). Startup checks are implemented in `src/yt-dlp-check.ts`.
+**Retries and extra args (all yt-dlp calls):**
+
+- **`YT_DLP_RETRIES`** – `-R` value (number or `infinite`). Default yt-dlp is 10. Increases retries for network flakiness.
+- **`YT_DLP_RETRY_SLEEP`** – `--retry-sleep` value, e.g. `linear=1::2` or `exp=1:20`. Delay between retries.
+- **`YT_DLP_EXTRA_ARGS`** – Space-separated extra arguments passed to all yt-dlp calls. For experts only; invalid values may break extraction.
+
+**Sleep options (reduce rate limits):**
+
+- **`YT_DLP_SLEEP_REQUESTS`** – Number of seconds to sleep between requests during extraction (`--sleep-requests`).
+- **`YT_DLP_SLEEP_INTERVAL`** – Minimum seconds to sleep before each download (`--sleep-interval`).
+- **`YT_DLP_MAX_SLEEP_INTERVAL`** – Maximum seconds to sleep (used with `YT_DLP_SLEEP_INTERVAL` for random range; `--max-sleep-interval`).
+- **`YT_DLP_SLEEP_SUBTITLES`** – Seconds to sleep before each subtitle download (`--sleep-subtitles`). Useful for playlists.
+
+**Subtitle format and encoding:**
+
+- **`YT_DLP_SUB_FORMAT`** – Default subtitle format: `srt`, `vtt`, `ass`, or `lrc`. Can be overridden per request in MCP tools and REST API.
+- **`YT_DLP_ENCODING`** – Character encoding for subtitle files, e.g. `utf-8`, `cp1251` (`--encoding`). Applied when downloading subtitles.
+
+**Audio download options (Whisper fallback only):**
+
+These apply only when downloading audio for Whisper. They improve reliability and speed for DASH/HLS streams:
+
+- **`YT_DLP_AUDIO_CONCURRENT_FRAGMENTS`** – `-N` value. Number of DASH/HLS fragments downloaded in parallel (default 1). Try `4` or `8` on slow links.
+- **`YT_DLP_AUDIO_LIMIT_RATE`** – `-r` value (e.g. `4M`, `500K`). Max download rate.
+- **`YT_DLP_AUDIO_THROTTLED_RATE`** – `--throttled-rate` value. Min rate below which throttling is assumed and extraction retried.
+- **`YT_DLP_AUDIO_RETRIES`** – `-R` value for audio download.
+- **`YT_DLP_AUDIO_FRAGMENT_RETRIES`** – `--fragment-retries` value for DASH/HLS fragments.
+- **`YT_DLP_AUDIO_RETRY_SLEEP`** – `--retry-sleep` value for audio download.
+- **`YT_DLP_AUDIO_BUFFER_SIZE`** – `--buffer-size` value (e.g. `64K`).
+- **`YT_DLP_AUDIO_HTTP_CHUNK_SIZE`** – `--http-chunk-size` value. Experimental; may bypass server throttling.
+- **`YT_DLP_AUDIO_DOWNLOADER`** – `--downloader` value (e.g. `aria2c`).
+- **`YT_DLP_AUDIO_DOWNLOADER_ARGS`** – `--downloader-args` value (e.g. `aria2c:"-x 4 -k 1M"`).
+
+These values are read in `src/youtube.ts` and passed to yt-dlp (timeout, runtimes, proxy, audio format/quality). The app always passes `--quiet` and `--no-progress` to all yt-dlp calls for cleaner headless/server logs. Startup checks are implemented in `src/yt-dlp-check.ts`.
 
 ## Cookies file for restricted videos
 

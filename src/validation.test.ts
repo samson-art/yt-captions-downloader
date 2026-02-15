@@ -427,7 +427,13 @@ describe('validation', () => {
         subtitlesContent: 'vimeo subtitle content',
         source: 'youtube',
       });
-      expect(youtube.downloadSubtitles).toHaveBeenCalledWith(vimeoUrl, 'auto', 'en', undefined);
+      expect(youtube.downloadSubtitles).toHaveBeenCalledWith(
+        vimeoUrl,
+        'auto',
+        'en',
+        undefined,
+        undefined
+      );
     });
 
     describe('auto-discover (lang and type omitted)', () => {
@@ -453,8 +459,22 @@ describe('validation', () => {
           subtitlesContent: 'official ru content',
           source: 'youtube',
         });
-        expect(downloadSpy).toHaveBeenNthCalledWith(1, youtubeUrl, 'official', 'en', undefined);
-        expect(downloadSpy).toHaveBeenNthCalledWith(2, youtubeUrl, 'official', 'ru', undefined);
+        expect(downloadSpy).toHaveBeenNthCalledWith(
+          1,
+          youtubeUrl,
+          'official',
+          'en',
+          undefined,
+          undefined
+        );
+        expect(downloadSpy).toHaveBeenNthCalledWith(
+          2,
+          youtubeUrl,
+          'official',
+          'ru',
+          undefined,
+          undefined
+        );
       });
 
       it('should prefer -orig auto subtitles for YouTube when available', async () => {
@@ -476,7 +496,13 @@ describe('validation', () => {
           subtitlesContent: 'en-orig content',
           source: 'youtube',
         });
-        expect(downloadSpy).toHaveBeenCalledWith(youtubeUrl, 'auto', 'en-orig', undefined);
+        expect(downloadSpy).toHaveBeenCalledWith(
+          youtubeUrl,
+          'auto',
+          'en-orig',
+          undefined,
+          undefined
+        );
       });
 
       it('should iterate auto list when no -orig for YouTube', async () => {
@@ -499,8 +525,22 @@ describe('validation', () => {
           subtitlesContent: 'ru auto content',
           source: 'youtube',
         });
-        expect(downloadSpy).toHaveBeenNthCalledWith(1, youtubeUrl, 'auto', 'en', undefined);
-        expect(downloadSpy).toHaveBeenNthCalledWith(2, youtubeUrl, 'auto', 'ru', undefined);
+        expect(downloadSpy).toHaveBeenNthCalledWith(
+          1,
+          youtubeUrl,
+          'auto',
+          'en',
+          undefined,
+          undefined
+        );
+        expect(downloadSpy).toHaveBeenNthCalledWith(
+          2,
+          youtubeUrl,
+          'auto',
+          'ru',
+          undefined,
+          undefined
+        );
       });
 
       it('should fallback to Whisper when no subtitles found', async () => {
@@ -571,7 +611,13 @@ describe('validation', () => {
           source: 'youtube',
         });
         expect(youtube.downloadSubtitles).toHaveBeenCalledTimes(1);
-        expect(youtube.downloadSubtitles).toHaveBeenCalledWith(youtubeUrl, 'auto', 'en', undefined);
+        expect(youtube.downloadSubtitles).toHaveBeenCalledWith(
+          youtubeUrl,
+          'auto',
+          'en',
+          undefined,
+          undefined
+        );
       });
     });
   });

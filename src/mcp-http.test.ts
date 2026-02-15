@@ -137,6 +137,59 @@ describe('mcp-http', () => {
         expect(resource).toHaveProperty('name');
       }
     });
+
+    it('includes configSchema with optional session config', async () => {
+      await app.ready();
+      const response = await app.inject({
+        method: 'GET',
+        url: '/.well-known/mcp/server-card.json',
+      });
+      expect(response.statusCode).toBe(200);
+      const body = response.json();
+      expect(body.configSchema).toBeDefined();
+      const schema = body.configSchema as {
+        type?: string;
+        required?: string[];
+        properties?: Record<string, unknown>;
+      };
+      expect(schema.type).toBe('object');
+      expect(schema.required).toEqual([]);
+      expect(schema.properties).toHaveProperty('authToken');
+      const authTokenProp = (
+        schema.properties as Record<
+          string,
+          { type?: string; description?: string; 'x-from'?: unknown }
+        >
+      ).authToken;
+      expect(authTokenProp.type).toBe('string');
+      expect(typeof authTokenProp.description).toBe('string');
+      expect(authTokenProp['x-from']).toEqual({ header: 'Authorization' });
+    });
+  });
+
+  describe('GET /.well-known/mcp/config-schema.json', () => {
+    it('returns 200 with session config JSON Schema (all optional)', async () => {
+      await app.ready();
+      const response = await app.inject({
+        method: 'GET',
+        url: '/.well-known/mcp/config-schema.json',
+      });
+      expect(response.statusCode).toBe(200);
+      expect(response.headers['content-type']).toContain('application/json');
+      const schema = response.json();
+      expect(schema.type).toBe('object');
+      expect(schema.required).toEqual([]);
+      expect(schema.properties).toHaveProperty('authToken');
+      const authTokenProp = (
+        schema.properties as Record<
+          string,
+          { type?: string; description?: string; 'x-from'?: unknown }
+        >
+      ).authToken;
+      expect(authTokenProp.type).toBe('string');
+      expect(typeof authTokenProp.description).toBe('string');
+      expect(authTokenProp['x-from']).toEqual({ header: 'Authorization' });
+    });
   });
 
   describe('auth', () => {

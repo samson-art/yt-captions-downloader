@@ -119,10 +119,29 @@ export function resolvePublicBaseUrlForRequest(
   return allowedUrls[0];
 }
 
+/**
+ * Session configuration JSON Schema for MCP discovery (e.g. Smithery).
+ * All fields are optional so users can connect without providing any config.
+ */
+export const MCP_SESSION_CONFIG_SCHEMA = {
+  type: 'object',
+  description: 'Optional session configuration for transcriptor-mcp. No fields are required.',
+  properties: {
+    authToken: {
+      type: 'string',
+      description:
+        'Bearer token for MCP HTTP endpoint. Only needed when the server is deployed with MCP_AUTH_TOKEN set.',
+      'x-from': { header: 'Authorization' },
+    },
+  },
+  required: [] as string[],
+} as const;
+
 /** Static MCP server card for discovery (e.g. Smithery) at /.well-known/mcp/server-card.json */
 function getServerCard(): {
   serverInfo: { name: string; version: string };
   authentication: { required: boolean; schemes: string[] };
+  configSchema: typeof MCP_SESSION_CONFIG_SCHEMA;
   tools: Array<{
     name: string;
     description: string;
@@ -138,6 +157,7 @@ function getServerCard(): {
       required: !!authToken,
       schemes: authToken ? ['bearer'] : [],
     },
+    configSchema: MCP_SESSION_CONFIG_SCHEMA,
     tools: [
       {
         name: 'get_transcript',
@@ -261,6 +281,10 @@ app.get('/health', async (_request, reply) => {
 // MCP server discovery (e.g. Smithery) — no auth so scanners can read metadata
 app.get('/.well-known/mcp/server-card.json', async (_request, reply) => {
   return reply.code(200).type('application/json').send(getServerCard());
+});
+
+app.get('/.well-known/mcp/config-schema.json', async (_request, reply) => {
+  return reply.code(200).type('application/json').send(MCP_SESSION_CONFIG_SCHEMA);
 });
 
 app.get('/metrics', async (_request, reply) => {

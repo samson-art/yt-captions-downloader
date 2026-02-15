@@ -322,6 +322,11 @@ describe('validation', () => {
 
     it('should throw NotFoundError when subtitles are not found', async () => {
       jest.spyOn(youtube, 'downloadSubtitles').mockResolvedValue(null);
+      jest.spyOn(youtube, 'fetchYtDlpJson').mockResolvedValue({
+        id: 'dQw4w9WgXcQ',
+        subtitles: {},
+        automatic_captions: {},
+      });
 
       await expect(
         validateAndDownloadSubtitles({
@@ -389,6 +394,11 @@ describe('validation', () => {
 
     it('should throw NotFoundError when Whisper fallback is enabled but returns null', async () => {
       jest.spyOn(youtube, 'downloadSubtitles').mockResolvedValue(null);
+      jest.spyOn(youtube, 'fetchYtDlpJson').mockResolvedValue({
+        id: 'dQw4w9WgXcQ',
+        subtitles: {},
+        automatic_captions: {},
+      });
       (whisper.getWhisperConfig as jest.Mock).mockReturnValue({ mode: 'local' });
       (whisper.transcribeWithWhisper as jest.Mock).mockResolvedValue(null);
 
@@ -792,6 +802,7 @@ describe('validation', () => {
         { startTime: 0, endTime: 60, title: 'Intro' },
         { startTime: 60, endTime: 120, title: 'Main' },
       ];
+      jest.spyOn(youtube, 'fetchYtDlpJson').mockResolvedValue({ id: 'dQw4w9WgXcQ' });
       jest.spyOn(youtube, 'fetchVideoChapters').mockResolvedValue(mockChapters);
 
       const result = await validateAndFetchVideoChapters({

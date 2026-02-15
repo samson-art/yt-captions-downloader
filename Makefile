@@ -15,7 +15,7 @@ DOCKER_MCP_IMAGE ?= artsamsonov/transcriptor-mcp
 .PHONY: help \
 	install clean \
 	build typecheck lint lint-fix format format-check test test-watch test-coverage check check-no-smoke \
-	load-test load-test-health load-test-subtitles load-test-mixed verify-pool \
+	load-test load-test-health load-test-subtitles load-test-mixed load-test-10vu-1min load-test-podcast-2h verify-pool \
 	docker-build-api docker-build-mcp docker-run-mcp-stdio \
 	docker-buildx-setup docker-buildx-api docker-buildx-mcp \
 	docker-smoke-api-local smoke \
@@ -71,6 +71,10 @@ load-test-subtitles: ## Heavy load: POST /subtitles
 	docker run -i --rm -v "$(CURDIR)/load:/scripts" -e BASE_URL="$(LOAD_BASE_URL)" grafana/k6 run $(K6_OUT_INFLUXDB) /scripts/subtitles.js
 load-test-mixed: ## Mixed: health + available + subtitles
 	docker run -i --rm -v "$(CURDIR)/load:/scripts" -e BASE_URL="$(LOAD_BASE_URL)" grafana/k6 run $(K6_OUT_INFLUXDB) /scripts/mixed.js
+load-test-10vu-1min: ## 10 VU, 1 min: each user requests one video at a time until minute ends
+	docker run -i --rm -v "$(CURDIR)/load:/scripts" -e BASE_URL="$(LOAD_BASE_URL)" grafana/k6 run $(K6_OUT_INFLUXDB) /scripts/ten-users-1min.js
+load-test-podcast-2h: ## 100 VU at once, 2h podcasts (until all complete)
+	docker run -i --rm -v "$(CURDIR)/load:/scripts" -e BASE_URL="$(LOAD_BASE_URL)" grafana/k6 run $(K6_OUT_INFLUXDB) /scripts/podcast-2h-100vu.js
 
 verify-pool: ## Verify VIDEO_POOL: call /subtitles/available for each video (requires API at LOAD_BASE_URL)
 	LOAD_BASE_URL="$(LOAD_BASE_URL)" node load/verify-pool.js

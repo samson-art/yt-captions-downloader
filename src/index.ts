@@ -5,7 +5,7 @@ import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import { Type } from '@sinclair/typebox';
-import { HttpError } from './errors.js';
+import { HttpError, NotFoundError } from './errors.js';
 import { parseSubtitles, detectSubtitleFormat } from './youtube.js';
 import {
   GetAvailableSubtitlesRequest,
@@ -23,7 +23,12 @@ import { version as API_VERSION } from './version.js';
 import { checkYtDlpAtStartup } from './yt-dlp-check.js';
 import { close as closeCache, ping as cachePing } from './cache.js';
 import * as Sentry from '@sentry/node';
-import { recordRequest, renderPrometheus, getFailedSubtitlesUrls } from './metrics.js';
+import {
+  recordRequest,
+  recordExpected404,
+  renderPrometheus,
+  getFailedSubtitlesUrls,
+} from './metrics.js';
 import { createLoggerWithSentryBreadcrumbs } from './logger-sentry-breadcrumbs.js';
 import { readChangelog } from './changelog.js';
 
@@ -31,6 +36,17 @@ import { readChangelog } from './changelog.js';
 const ErrorResponseSchema = Type.Object({
   error: Type.String(),
   message: Type.String(),
+});
+
+const NotFoundResponseSchema = Type.Object({
+  error: Type.String(),
+  message: Type.String(),
+  available: Type.Optional(
+    Type.Object({
+      official: Type.Array(Type.String()),
+      auto: Type.Array(Type.String()),
+    })
+  ),
 });
 
 const SubtitlesResponseSchema = Type.Object({
@@ -88,26 +104,54 @@ fastify.setErrorHandler((error, request, reply) => {
   const statusCode = error instanceof HttpError ? error.statusCode : 500;
   const message = error instanceof Error ? error.message : 'Unknown error occurred';
   const errorLabel = error instanceof HttpError ? error.errorLabel : 'Internal server error';
+  const route = request.routeOptions?.url ?? request.url?.split('?')[0] ?? 'unknown';
+
   if (statusCode >= 500) {
     fastify.log.error(error);
   } else {
     fastify.log.warn({ err: error }, message);
   }
+
+  if (statusCode === 404 && error instanceof NotFoundError) {
+    recordExpected404(request.method, route);
+  }
+
   Sentry.withScope((scope) => {
-    scope.setContext('request', {
+    const requestContext: Record<string, unknown> = {
       method: request.method,
       url: request.url,
       statusCode,
-    });
+    };
+    if (
+      statusCode >= 500 &&
+      request.body &&
+      typeof request.body === 'object' &&
+      'url' in request.body &&
+      typeof (request.body as { url?: unknown }).url === 'string'
+    ) {
+      requestContext.requestUrl = (request.body as { url: string }).url;
+    }
+    scope.setContext('request', requestContext);
+    scope.setTag('route', route);
     if (statusCode >= 400 && statusCode < 500) {
       scope.setLevel('warning');
     }
     Sentry.captureException(error);
   });
-  return reply.code(statusCode).send({
-    error: errorLabel,
-    message,
-  });
+
+  const payload: {
+    error: string;
+    message: string;
+    available?: { official?: string[]; auto?: string[] };
+  } = { error: errorLabel, message };
+  if (statusCode === 404 && error instanceof NotFoundError && error.details) {
+    payload.available = {
+      ...(error.details.official && { official: error.details.official }),
+      ...(error.details.auto && { auto: error.details.auto }),
+    };
+    if (Object.keys(payload.available).length === 0) delete payload.available;
+  }
+  return reply.code(statusCode).send(payload);
 });
 
 // Register CORS (optional allowlist via CORS_ALLOWED_ORIGINS comma-separated)
@@ -209,7 +253,7 @@ fastify.register(async (instance) => {
         response: {
           200: SubtitlesResponseSchema,
           400: ErrorResponseSchema,
-          404: ErrorResponseSchema,
+          404: NotFoundResponseSchema,
           500: ErrorResponseSchema,
         },
       },
@@ -248,7 +292,7 @@ fastify.register(async (instance) => {
         response: {
           200: RawSubtitlesResponseSchema,
           400: ErrorResponseSchema,
-          404: ErrorResponseSchema,
+          404: NotFoundResponseSchema,
           500: ErrorResponseSchema,
         },
       },

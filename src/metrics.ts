@@ -25,6 +25,14 @@ export const httpRequestErrorsTotal = new Counter({
   registers: [register],
 });
 
+// Expected 404 (NotFoundError) — subtitles not found, video not found, etc.
+export const http404ExpectedTotal = new Counter({
+  name: 'http_404_expected_total',
+  help: 'Expected 404 responses (NotFoundError: subtitles/video not found)',
+  labelNames: ['method', 'route'],
+  registers: [register],
+});
+
 export const httpRequestDurationSeconds = new Histogram({
   name: 'http_request_duration_seconds',
   help: 'HTTP request duration in seconds',
@@ -111,6 +119,10 @@ export function recordRequest(
 
 export function recordError(): void {
   httpRequestErrorsTotal.inc();
+}
+
+export function recordExpected404(method: string, route: string): void {
+  http404ExpectedTotal.inc({ method, route });
 }
 
 export function recordCacheHit(): void {

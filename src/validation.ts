@@ -408,9 +408,13 @@ export async function validateAndDownloadSubtitles(
       if (getWhisperConfig().mode !== 'off') {
         recordSubtitlesFailure(url);
       }
+      const available = await validateAndFetchAvailableSubtitles({ url }, logger).catch(
+        () => undefined
+      );
       throw new NotFoundError(
-        'No subtitles available (tried official, auto, and Whisper fallback)',
-        'Subtitles not found'
+        'No subtitles available (tried official, auto, and Whisper fallback). Use /subtitles/available to list supported languages, or omit type/lang for auto-discovery.',
+        'Subtitles not found',
+        available ? { official: available.official, auto: available.auto } : undefined
       );
     }
 
@@ -458,9 +462,13 @@ export async function validateAndDownloadSubtitles(
     if (getWhisperConfig().mode !== 'off') {
       recordSubtitlesFailure(url);
     }
+    const available = await validateAndFetchAvailableSubtitles({ url }, logger).catch(
+      () => undefined
+    );
     throw new NotFoundError(
-      `No ${type} subtitles available for language "${sanitizedLang}"`,
-      'Subtitles not found'
+      `No subtitles for language "${sanitizedLang}". Use /subtitles/available to list supported languages, or omit type/lang for auto-discovery.`,
+      'Subtitles not found',
+      available ? { official: available.official, auto: available.auto } : undefined
     );
   }
 

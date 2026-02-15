@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-02-15
+
+### Added
+
+- **Sentry:** `beforeSend` filters out expected client errors (NotFoundError, ValidationError) to reduce noise; expected 404s are monitored via Prometheus instead.
+- **Prometheus metric `http_404_expected_total`:** Counter for expected 404 responses (NotFoundError) with labels `method` and `route`.
+- **404 response `available` field:** When subtitles are not found, the API now returns `available: { official, auto }` in the 404 payload so clients can show supported languages without an extra `/subtitles/available` call.
+- **Load test result report:** `load/load-test-result-2025-02-15.md` — results for subtitles, mixed, 10 VU 1 min, and podcast 2h scenarios (k6, BASE_URL, thresholds, metrics).
+
+### Changed
+
+- **Error messages:** NotFoundError messages now hint at `/subtitles/available` and auto-discovery (omit type/lang).
+- **Sentry context:** 5xx events include `requestUrl` from body for subtitle endpoints; `route` tag added; MCP errors include transport type and sessionId.
+- **docs/sentry.md:** Documented `beforeSend` filtering, Prometheus for expected 404s, SENTRY_RELEASE recommendation.
+
+### Removed
+
+- **Obsolete load test result:** Removed `load/load-test-subtitles-result-2026-02-13.md`; results consolidated in `load/load-test-result-2025-02-15.md`.
+
+## [0.6.2] - 2026-02-15
+
+### Added
+
+- **Sentry Performance / tracing:** Optional **`SENTRY_TRACES_SAMPLE_RATE`** (0–1, default `0.1`) and **`SENTRY_SEND_DEFAULT_PII`** env vars. `src/instrument.ts` passes `tracesSampleRate` and `sendDefaultPii` to Sentry.init. Performance monitoring is active when running via `start` / `start:mcp` / `start:mcp:http` (instrument loaded first). Documented in `docs/sentry.md` (Performance / Tracing section) and `.env.example`.
+- **Load scenario "10 VU, 1 min":** New k6 script `load/ten-users-1min.js` — 10 concurrent users, each requests one video at a time until 1 minute; uses VIDEO_POOL. Make target **`load-test-10vu-1min`**, npm script **`load-test:10vu-1min`**. Documented in `load/load-testing.md` with thresholds (`http_req_failed` &lt; 5%, p95 &lt; 120 s).
+- **Load scenario "100 VU, 2h podcasts":** New k6 script `load/podcast-2h-100vu.js` — 100 VU at once, one 2h podcast per VU; uses **`PODCAST_2H_POOL`** and **`getPodcast2hRequest()`** in `load/config.js` (~95 long-form videos: JRE, Lex Fridman, Tim Ferriss, Rich Roll, вДудь, etc.). Make target **`load-test-podcast-2h`**, npm script **`load-test:podcast-2h`**. Documented in `load/load-testing.md` (scenario section, recommended API env, how to read `test_run_duration`).
+
+### Changed
+
+- **load/config.js:** Added `PODCAST_2H_POOL` and `getPodcast2hRequest(iter, vu)` for the 2h podcast load scenario.
+- **load/load-testing.md:** New scenario table rows for `ten-users-1min.js` and `podcast-2h-100vu.js`; PODCAST_2H_POOL description; thresholds for ten-users-1min; dedicated sections "Scenario: 10 users, one video per request for 1 minute" and "Scenario: 100 users, 2h podcasts".
+
 ## [0.6.1] - 2026-02-15
 
 ### Added

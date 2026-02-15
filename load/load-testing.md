@@ -32,9 +32,11 @@ For load tests, raise `RATE_LIMIT_MAX` so the default 100 req/min limit does not
 make load-test
 
 # Individual scenarios
-make load-test-health    # GET /health only (50 VU, 30s)
-make load-test-subtitles # POST /subtitles (5–10 VU, 60s)
-make load-test-mixed     # health + available + subtitles (10 VU, 60s)
+make load-test-health       # GET /health only (50 VU, 30s)
+make load-test-subtitles    # POST /subtitles (5–10 VU, 60s)
+make load-test-mixed        # health + available + subtitles (10 VU, 60s)
+make load-test-10vu-1min    # 10 VU, 1 min: one video per request until minute ends
+make load-test-podcast-2h   # 100 VU at once, 2h podcasts (until all complete)
 ```
 
 Override base URL:
@@ -46,9 +48,11 @@ make load-test-health LOAD_BASE_URL=http://localhost:3000
 ### Via npm (uses Docker k6 image)
 
 ```bash
-npm run load-test           # health
+npm run load-test            # health
 npm run load-test:subtitles
 npm run load-test:mixed
+npm run load-test:10vu-1min  # 10 VU, 1 min
+npm run load-test:podcast-2h # 100 VU, 2h podcasts
 ```
 
 With custom base URL:
@@ -71,6 +75,8 @@ k6 run -e BASE_URL=http://localhost:3000 load/subtitles.js
 | `health.js` | GET /health | 50 | 30s | Baseline, no yt-dlp |
 | `subtitles.js` | POST /subtitles | 5→10 | 60s | Heavy load, video pool |
 | `mixed.js` | /health, /subtitles/available, /subtitles | 10 | 60s | 70% / 20% / 10% mix |
+| `ten-users-1min.js` | POST /subtitles | 10 | 1m | 10 users; each requests one video at a time until minute ends |
+| `podcast-2h-100vu.js` | POST /subtitles | 100 | until done | 100 users at once, 2h podcasts |
 
 ## Video pool
 
@@ -87,6 +93,8 @@ Scenarios use **`getVideoRequest(iter, vu)`**, which returns `{ url, type, lang 
 
 **Verifying the pool:** run `make verify-pool` or `npm run verify-pool` (with the API at `LOAD_BASE_URL` / `BASE_URL`). This calls POST /subtitles/available for each video and reports which have at least one subtitle; it also prints actual `official`/`auto` when they differ from the pool so you can update `config.js`.
 
+**PODCAST_2H_POOL** in `config.js` holds ~95 real long-form videos (≥2 h) for the scenario `podcast-2h-100vu.js`: Joe Rogan Experience, Lex Fridman, Tim Ferriss, Rich Roll (EN), вДудь and other Russian long-form (RU). Use **`getPodcast2hRequest(iter, vu)`** to get `{ url, type, lang }` with round-robin selection.
+
 ## Recommended thresholds for regression
 
 Use these thresholds when running load tests to catch performance regressions (e.g. in CI or before release):
@@ -95,6 +103,8 @@ Use these thresholds when running load tests to catch performance regressions (e
 |--------|-----------|--------|---------|
 | `subtitles.js` | `http_req_failed` | `rate<0.05` | Error rate must stay below 5%. |
 | `subtitles.js` | `http_req_duration` | `p(95)<120000` | 95th percentile latency must be under 120 s. |
+| `ten-users-1min.js` | `http_req_failed` | `rate<0.05` | Error rate must stay below 5%. |
+| `ten-users-1min.js` | `http_req_duration` | `p(95)<120000` | 95th percentile latency must be under 120 s. |
 
 Example: `k6 run --throw load/subtitles.js` fails the run if thresholds are not met. The scripts in this directory already define these thresholds; `--throw` is useful in CI.
 
@@ -108,6 +118,40 @@ k6 reports:
 - `iterations` — completed script runs
 
 For throughput (videos/min): `http_reqs` for POST /subtitles × 60.
+
+## Scenario: 10 users, one video per request for 1 minute
+
+**Goal:** Simulate 10 concurrent users; each user requests subtitles for one video, waits for the response, then requests the next video, until 1 minute has elapsed.
+
+**How to run:**
+
+```bash
+make load-test-10vu-1min
+# or
+npm run load-test:10vu-1min
+# with custom URL
+LOAD_BASE_URL=http://localhost:3000 make load-test-10vu-1min
+```
+
+Uses **VIDEO_POOL** via `getVideoRequest` (short/medium videos). Request timeout 120 s; thresholds: `http_req_failed` &lt; 5%, `http_req_duration` p95 &lt; 120 s. Total requests = 10 VU × (iterations completed in 1 min per VU).
+
+## Scenario: 100 users, 2h podcasts
+
+**Goal:** Measure how long it takes to process 100 simultaneous requests for 2-hour podcast transcripts.
+
+**How to run:**
+
+```bash
+make load-test-podcast-2h
+# or
+npm run load-test:podcast-2h
+# with custom URL
+LOAD_BASE_URL=http://localhost:3000 make load-test-podcast-2h
+```
+
+**Recommended API env** (long videos, possible Whisper path): `RATE_LIMIT_MAX=1000`, `YT_DLP_TIMEOUT=90000`, `YT_DLP_AUDIO_TIMEOUT=900000`.
+
+**Reading the result:** In the k6 summary, **test_run_duration** is the time from start until the last of the 100 requests completes (“how long until all are processed”). Use **http_req_duration** (avg, p95, p99) for per-request latency. Requests use a 900 s timeout; 2h videos with Whisper can be slow (audio download + transcription).
 
 ## Recommended env for load tests
 

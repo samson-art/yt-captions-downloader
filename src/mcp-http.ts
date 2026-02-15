@@ -573,7 +573,10 @@ app.get('/sse', async (request, reply) => {
   };
   transport.onerror = (error) => {
     app.log.error({ error }, 'SSE transport error');
-    Sentry.captureException(error instanceof Error ? error : new Error(String(error)));
+    Sentry.withScope((scope) => {
+      scope.setContext('mcp', { transport: 'sse', sessionId: transport.sessionId });
+      Sentry.captureException(error instanceof Error ? error : new Error(String(error)));
+    });
   };
 
   await server.connect(transport);
@@ -637,7 +640,10 @@ async function start() {
     cleanupInterval.unref();
   } catch (error) {
     app.log.error(error);
-    Sentry.captureException(error instanceof Error ? error : new Error(String(error)));
+    Sentry.withScope((scope) => {
+      scope.setContext('mcp', { context: 'startup' });
+      Sentry.captureException(error instanceof Error ? error : new Error(String(error)));
+    });
     process.exit(1);
   }
 }
@@ -664,7 +670,10 @@ const shutdown = async (signal: string) => {
     clearTimeout(forceShutdownTimer);
     const error = err instanceof Error ? err : new Error(String(err));
     app.log.error(error, 'Error during shutdown');
-    Sentry.captureException(error);
+    Sentry.withScope((scope) => {
+      scope.setContext('mcp', { context: 'shutdown' });
+      Sentry.captureException(error);
+    });
     process.exit(1);
   }
 };

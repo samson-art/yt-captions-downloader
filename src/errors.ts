@@ -22,11 +22,20 @@ export class ValidationError extends HttpError {
   }
 }
 
+/** Optional details for 404 response (e.g. available subtitle languages) */
+export type NotFoundDetails = {
+  official?: string[];
+  auto?: string[];
+};
+
 /** 404 Not Found – resource or subtitles not found */
 export class NotFoundError extends HttpError {
-  constructor(message: string, errorLabel = 'Not found') {
+  readonly details?: NotFoundDetails;
+
+  constructor(message: string, errorLabel = 'Not found', details?: NotFoundDetails) {
     super(404, message, errorLabel);
     this.name = 'NotFoundError';
+    this.details = details;
     Object.setPrototypeOf(this, new.target.prototype);
   }
 }

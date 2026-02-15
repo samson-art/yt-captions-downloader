@@ -363,6 +363,17 @@ app.route({
   },
 });
 
+/** POST /sse compatibility: some MCP clients (e.g. Cursor via Smithery) POST to /sse for streamable HTTP.
+ * Delegate to streamable handler; correct endpoint is POST /mcp. */
+app.post('/sse', async (request, reply) => {
+  if (!ensureAuth(request, reply, authToken)) {
+    return;
+  }
+
+  reply.hijack();
+  await handleStreamablePost(request, reply);
+});
+
 app.get('/sse', async (request, reply) => {
   if (!ensureAuth(request, reply, authToken)) {
     return;

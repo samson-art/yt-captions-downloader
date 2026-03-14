@@ -394,67 +394,72 @@ async function downloadWithAutoDiscover(
   return null;
 }
 
-/**
- * Validates request and downloads subtitles (supported platforms or Whisper fallback).
- * When type and lang are both omitted, uses auto-discovery: official → auto (-orig for YouTube) → Whisper.
- * @param logger - Fastify logger instance for structured logging
- * @returns object with subtitle data
- * @throws ValidationError on invalid input, NotFoundError when subtitles are not available
- */
-export async function validateAndDownloadSubtitles(
-  request: GetSubtitlesRequest,
-  logger?: FastifyBaseLogger
-): Promise<{
+const WHISPER_HINT =
+  'Whisper fallback was attempted but failed (timeout or service error). For long videos, set WHISPER_TIMEOUT higher (e.g. 3600000 for 1-hour videos).';
+
+async function throwNoSubtitlesError(opts: {
+  url: string;
+  baseMsg: string;
+  whisperHintPrefix: '' | ' ';
+  whisperTried: boolean;
+  logger?: FastifyBaseLogger;
+}): Promise<never> {
+  if (opts.whisperTried) recordSubtitlesFailure(opts.url);
+  const available = await validateAndFetchAvailableSubtitles({ url: opts.url }, opts.logger).catch(
+    () => undefined
+  );
+  const whisperHint = opts.whisperTried ? `${opts.whisperHintPrefix}${WHISPER_HINT}` : '';
+  throw new NotFoundError(
+    `${opts.baseMsg}${whisperHint} Use /subtitles/available to list supported languages, or omit type/lang for auto-discovery.`,
+    'Subtitles not found',
+    available ? { official: available.official, auto: available.auto } : undefined
+  );
+}
+
+type SubtitleResult = {
   videoId: string;
   type: 'official' | 'auto';
   lang: string;
   subtitlesContent: string;
   source?: string;
-}> {
-  const validated = validateVideoRequest(request.url);
-  const { url } = validated;
+};
 
-  if (shouldAutoDiscoverSubtitles(request)) {
-    const format = request.format as SubtitleFormat | undefined;
-    const cacheConfig = getCacheConfig();
-    const cacheKey = `sub:${url}:auto-discovery:${format ?? 'default'}`;
-    const cached = await get(cacheKey);
-    if (cached !== undefined) {
-      recordCacheHit();
-      return JSON.parse(cached) as {
-        videoId: string;
-        type: 'official' | 'auto';
-        lang: string;
-        subtitlesContent: string;
-        source?: string;
-      };
-    }
-    recordCacheMiss();
+async function handleAutoDiscoverFlow(
+  request: GetSubtitlesRequest,
+  url: string,
+  logger?: FastifyBaseLogger
+): Promise<SubtitleResult> {
+  const format = request.format as SubtitleFormat | undefined;
+  const cacheConfig = getCacheConfig();
+  const cacheKey = `sub:${url}:auto-discovery:${format ?? 'default'}`;
+  const cached = await get(cacheKey);
+  if (cached !== undefined) {
+    recordCacheHit();
+    return JSON.parse(cached) as SubtitleResult;
+  }
+  recordCacheMiss();
 
-    const result = await downloadWithAutoDiscover(url, format, logger);
-    if (!result) {
-      const whisperTried = getWhisperConfig().mode !== 'off';
-      if (whisperTried) {
-        recordSubtitlesFailure(url);
-      }
-      const available = await validateAndFetchAvailableSubtitles({ url }, logger).catch(
-        () => undefined
-      );
-      const baseMsg = 'No subtitles available (tried official, auto, and Whisper fallback). ';
-      const whisperHint = whisperTried
-        ? 'Whisper fallback was attempted but failed (timeout or service error). For long videos, set WHISPER_TIMEOUT higher (e.g. 3600000 for 1-hour videos). '
-        : '';
-      throw new NotFoundError(
-        `${baseMsg}${whisperHint}Use /subtitles/available to list supported languages, or omit type/lang for auto-discovery.`,
-        'Subtitles not found',
-        available ? { official: available.official, auto: available.auto } : undefined
-      );
-    }
-
-    await set(cacheKey, JSON.stringify(result), cacheConfig.ttlSubtitlesSeconds);
-    return result;
+  const result = await downloadWithAutoDiscover(url, format, logger);
+  if (!result) {
+    const whisperTried = getWhisperConfig().mode !== 'off';
+    await throwNoSubtitlesError({
+      url,
+      baseMsg: 'No subtitles available (tried official, auto, and Whisper fallback). ',
+      whisperHintPrefix: '',
+      whisperTried,
+      logger,
+    });
   }
 
+  await set(cacheKey, JSON.stringify(result), cacheConfig.ttlSubtitlesSeconds);
+  return result as SubtitleResult;
+}
+
+async function handleExplicitRequestFlow(
+  request: GetSubtitlesRequest,
+  url: string,
+  logger?: FastifyBaseLogger
+): Promise<SubtitleResult> {
   const type = request.type ?? 'auto';
   const lang = request.lang ?? 'en';
   const format = request.format as SubtitleFormat | undefined;
@@ -469,13 +474,7 @@ export async function validateAndDownloadSubtitles(
   const cached = await get(cacheKey);
   if (cached !== undefined) {
     recordCacheHit();
-    return JSON.parse(cached) as {
-      videoId: string;
-      type: 'official' | 'auto';
-      lang: string;
-      subtitlesContent: string;
-      source?: string;
-    };
+    return JSON.parse(cached) as SubtitleResult;
   }
   recordCacheMiss();
 
@@ -493,28 +492,47 @@ export async function validateAndDownloadSubtitles(
 
   if (!subtitlesContent) {
     const whisperTried = getWhisperConfig().mode !== 'off';
-    if (whisperTried) {
-      recordSubtitlesFailure(url);
-    }
-    const available = await validateAndFetchAvailableSubtitles({ url }, logger).catch(
-      () => undefined
-    );
-    const whisperHint = whisperTried
-      ? ' Whisper fallback was attempted but failed (timeout or service error). For long videos, set WHISPER_TIMEOUT higher (e.g. 3600000 for 1-hour videos).'
-      : '';
-    throw new NotFoundError(
-      `No subtitles for language "${sanitizedLang}".${whisperHint} Use /subtitles/available to list supported languages, or omit type/lang for auto-discovery.`,
-      'Subtitles not found',
-      available ? { official: available.official, auto: available.auto } : undefined
-    );
+    await throwNoSubtitlesError({
+      url,
+      baseMsg: `No subtitles for language "${sanitizedLang}".`,
+      whisperHintPrefix: ' ',
+      whisperTried,
+      logger,
+    });
   }
 
   const data = await fetchYtDlpJson(url, logger);
   const videoId = data?.id ?? extractYouTubeVideoId(url) ?? 'unknown';
 
-  const result = { videoId, type, lang: sanitizedLang, subtitlesContent, source };
+  const result: SubtitleResult = {
+    videoId,
+    type,
+    lang: sanitizedLang,
+    subtitlesContent: subtitlesContent as string,
+    source,
+  };
   await set(cacheKey, JSON.stringify(result), cacheConfig.ttlSubtitlesSeconds);
   return result;
+}
+
+/**
+ * Validates request and downloads subtitles (supported platforms or Whisper fallback).
+ * When type and lang are both omitted, uses auto-discovery: official → auto (-orig for YouTube) → Whisper.
+ * @param logger - Fastify logger instance for structured logging
+ * @returns object with subtitle data
+ * @throws ValidationError on invalid input, NotFoundError when subtitles are not available
+ */
+export async function validateAndDownloadSubtitles(
+  request: GetSubtitlesRequest,
+  logger?: FastifyBaseLogger
+): Promise<SubtitleResult> {
+  const validated = validateVideoRequest(request.url);
+  const { url } = validated;
+
+  if (shouldAutoDiscoverSubtitles(request)) {
+    return handleAutoDiscoverFlow(request, url, logger);
+  }
+  return handleExplicitRequestFlow(request, url, logger);
 }
 
 /**

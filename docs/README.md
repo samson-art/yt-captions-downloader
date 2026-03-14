@@ -1,11 +1,12 @@
 ## Documentation
 
-This repository ships both an MCP server and an optional REST API.  
+This repository ships both an MCP server and an optional REST API. **Supported platforms**: YouTube, Twitter/X, Instagram, TikTok, Twitch, Vimeo, Facebook, Bilibili, VK, Dailymotion, Reddit. Connect with **no install** via [Smithery](https://smithery.ai/servers/samson-art/transcriptor-mcp) or [Glama](https://glama.ai/mcp/servers/samson-art/transcriptor-mcp).
+
 The detailed documentation is split into focused guides:
 
 - **MCP server (stdio + HTTP/SSE)**: see [quick-start.mcp.md](quick-start.mcp.md)
 - **REST API quick start & endpoints**: see [quick-start.rest.md](quick-start.rest.md)
-- **Configuration & environment variables**: see [configuration.md](configuration.md)
+- **Configuration & environment variables**: see [configuration.md](configuration.md) — includes self-configurable Whisper fallback and Redis caching
 - **Using cookies for restricted videos**: see [cookies.md](cookies.md)
 - **Redis cache**: see [caching.md](caching.md)
 - **Load testing (k6)**: see `load/load-testing.md`

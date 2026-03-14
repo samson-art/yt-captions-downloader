@@ -147,7 +147,7 @@ The MCP HTTP server also supports **`SHUTDOWN_TIMEOUT`** for graceful shutdown (
 
 ## Whisper fallback (subtitles not available)
 
-When subtitles cannot be obtained from YouTube (via yt-dlp), the app can optionally use [Whisper](https://github.com/openai/whisper) to transcribe the video audio. Configure via environment variables:
+You can enable Whisper fallback to transcribe audio when subtitles are unavailable. When subtitles cannot be obtained (via yt-dlp), the app can optionally use [Whisper](https://github.com/openai/whisper) to transcribe the video audio. Configure via environment variables:
 
 - **`WHISPER_MODE`** – when to use Whisper  
   - `off` (default) – no fallback; return 404 when subtitles are missing  
@@ -186,7 +186,7 @@ whisper:
 
 ## Cache (Redis)
 
-Responses for subtitles, video info, available subtitles, and chapters can be cached in Redis so repeated requests for the same video are served without calling yt-dlp again. Both the REST API and the MCP server use this cache when it is enabled.
+You can optionally enable Redis caching to reduce repeated yt-dlp calls. Responses for subtitles, video info, available subtitles, and chapters can be cached in Redis so repeated requests for the same video are served without calling yt-dlp again. Both the REST API and the MCP server use this cache when it is enabled.
 
 - **`CACHE_MODE`** – cache mode  
   - `off` (default) – no caching; every request hits yt-dlp  

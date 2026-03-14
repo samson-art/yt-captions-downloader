@@ -1,33 +1,14 @@
-<div align="center">
-  <img src="./logo.webp" alt="transcriptor-mcp logo" width="160" />
 
-  <h1>Transcriptor MCP</h1>
 
-  <p>
-    <a href="https://smithery.ai/servers/samson-art/transcriptor-mcp"><img alt="smithery" src="https://smithery.ai/badge/samson-art/transcriptor-mcp" /></a>
-    <a href="https://github.com/samson-art/transcriptor-mcp/releases"><img alt="version" src="https://img.shields.io/github/v/release/samson-art/transcriptor-mcp" /></a>
-    <a href="https://github.com/samson-art/transcriptor-mcp/blob/main/LICENSE"><img alt="license" src="https://img.shields.io/github/license/samson-art/transcriptor-mcp" /></a>
-    <a href="https://hub.docker.com/r/artsamsonov/transcriptor-mcp"><img alt="docker" src="https://img.shields.io/docker/v/artsamsonov/transcriptor-mcp?label=docker" /></a>
-  </p>
+# Transcriptor MCP
 
-  <p>
-    An MCP server (stdio + HTTP/SSE) that fetches video transcripts/subtitles via <code>yt-dlp</code>,
-    with pagination for large responses. Supports YouTube, Twitter/X, Instagram, TikTok, Twitch, Vimeo, Facebook, Bilibili, VK, Dailymotion, Reddit. <strong>Whisper fallback</strong> — transcribes audio when subtitles are unavailable (local or OpenAI API). Works with Cursor and other MCP hosts.
-  </p>
 
-  <p>
-    <a href="https://github.com/samson-art/transcriptor-mcp">GitHub</a>
-    ·
-    <a href="https://github.com/samson-art/transcriptor-mcp/issues">Issues</a>
-    ·
-    <a href="https://hub.docker.com/r/artsamsonov/transcriptor-mcp">Docker Hub</a>
-    ·
-    <a href="https://smithery.ai/servers/samson-art/transcriptor-mcp">Smithery</a>
-  </p>
-</div>
+
+An MCP server (stdio + HTTP/SSE) that fetches video transcripts/subtitles via `yt-dlp`, with pagination for large responses. Supports YouTube, Twitter/X, Instagram, TikTok, Twitch, Vimeo, Facebook, Bilibili, VK, Dailymotion, Reddit. **Whisper fallback** — transcribes audio when subtitles are unavailable (local or OpenAI API). Works with Cursor and other MCP hosts.
+
+[GitHub](https://github.com/samson-art/transcriptor-mcp) · [Issues](https://github.com/samson-art/transcriptor-mcp/issues) · [Docker Hub](https://hub.docker.com/r/artsamsonov/transcriptor-mcp) · [Smithery](https://smithery.ai/servers/samson-art/transcriptor-mcp) · [Glama](https://glama.ai/mcp/servers/samson-art/transcriptor-mcp)
 
 ## Overview
-
 
 This repository primarily ships an **MCP server**:
 
@@ -35,6 +16,14 @@ This repository primarily ships an **MCP server**:
 - **HTTP/SSE**: for remote usage (e.g., VPS + Tailscale).
 
 It also includes an optional **REST API** (Fastify), but MCP is the primary focus.
+
+## Supported platforms
+
+Unlike YouTube-only tools, Transcriptor MCP works across **11 major video platforms**:
+
+YouTube · Twitter/X · Instagram · TikTok · Twitch · Vimeo · Facebook · Bilibili · VK · Dailymotion · Reddit
+
+All URL-based tools (`get_transcript`, `get_raw_subtitles`, `get_available_subtitles`, `get_video_info`, `get_video_chapters`, `get_playlist_transcripts`) accept video URLs from any supported platform. The `search_videos` tool is YouTube-specific (yt-dlp ytsearch).
 
 ## When to use Transcriptor MCP
 
@@ -47,56 +36,54 @@ Transcriptor MCP is the best choice when you need **transcripts and metadata** f
 
 See [docs](docs/README.md) for step-by-step use cases: summarize video, search and transcript, [IDE/Cursor/Claude](docs/use-case-ide-cursor-claude.md), [n8n automation](docs/use-case-n8n-automation.md), [researchers and batch](docs/use-case-researchers-batch.md), and [self-hosted/enterprise](docs/use-case-self-hosted.md).
 
-## Quick Start (no install)
+## How to connect
 
-**1. Connect via Smithery (recommended)** — no Docker or Node required.
 
-Add the MCP server by URL in your client (Cursor, Claude Code, etc.):
+| Method             | Links                                                                                                                                                                    | Use case                         |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------- |
+| **Smithery**       | [smithery.ai/servers/samson-art/transcriptor-mcp](https://smithery.ai/servers/samson-art/transcriptor-mcp), URL `https://server.smithery.ai/samson-art/transcriptor-mcp` | No install, instant connection   |
+| **Glama**          | [glama.ai/mcp/servers/samson-art/transcriptor-mcp](https://glama.ai/mcp/servers/samson-art/transcriptor-mcp)                                                             | MCP directory, one-click install |
+| **Docker (stdio)** | Image `artsamsonov/transcriptor-mcp:latest`, [Docker Hub](https://hub.docker.com/r/artsamsonov/transcriptor-mcp)                                                         | Local Cursor, no Node            |
 
-- **URL:** `https://server.smithery.ai/samson-art/transcriptor-mcp`
-- **Server page:** [smithery.ai/servers/samson-art/transcriptor-mcp](https://smithery.ai/servers/samson-art/transcriptor-mcp)
 
-For one-click install in VS Code: [![Install in VS Code](https://img.shields.io/badge/VS_Code-Install-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=transcriptor&config=%7B%22url%22%3A%22https%3A%2F%2Fserver.smithery.ai%2Fsamson-art%2Ftranscriptor-mcp%22%7D) [![Install in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-Install-24bfa5?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=transcriptor&config=%7B%22url%22%3A%22https%3A%2F%2Fserver.smithery.ai%2Fsamson-art%2Ftranscriptor-mcp%22%7D&quality=insiders)
+**Smithery** — Add the MCP server by URL in your client (Cursor, Claude Code, etc.). No config needed for the public instance. Use tools like `get_transcript` or `get_video_info` right away.
 
-No config needed for the public instance. Use tools like `get_transcript` or `get_video_info` right away.
+For one-click install in VS Code: [Install in VS Code](https://insiders.vscode.dev/redirect/mcp/install?name=transcriptor&config=%7B%22url%22%3A%22https%3A%2F%2Fserver.smithery.ai%2Fsamson-art%2Ftranscriptor-mcp%22%7D) [Install in VS Code Insiders](https://insiders.vscode.dev/redirect/mcp/install?name=transcriptor&config=%7B%22url%22%3A%22https%3A%2F%2Fserver.smithery.ai%2Fsamson-art%2Ftranscriptor-mcp%22%7D&quality=insiders)
 
-**Optional config** (only when the server requires auth):
+**Docker** — See [MCP quick start](#mcp-quick-start-docker-and-self-hosted) below.
 
-```json
-{
-  "authToken": "your-token-from-server-admin"
-}
-```
-
-**2. Docker (stdio)** — run locally: see [MCP quick start (recommended)](#mcp-quick-start-recommended) below.
-
-**3. Local Node** — build and run `node dist/mcp.js`; see [MCP Server (stdio)](#mcp-server-stdio) below.
+**Local Node** — Build and run `node dist/mcp.js`; see [MCP Server (stdio)](#mcp-server-stdio) below.
 
 ## Features
 
-- **Connect by URL (Smithery)** — use the server without installing Docker or Node; [server page](https://smithery.ai/servers/samson-art/transcriptor-mcp).
+- **Multi-platform** — YouTube, Reddit, Twitter/X, Instagram, TikTok, Twitch, Vimeo, Facebook, Bilibili, VK, Dailymotion.
+- **Connect by URL (Smithery, Glama)** — use the server without installing Docker or Node; [Smithery](https://smithery.ai/servers/samson-art/transcriptor-mcp), [Glama](https://glama.ai/mcp/servers/samson-art/transcriptor-mcp).
 - **Transcripts + raw subtitles**: cleaned text or raw SRT/VTT.
 - **Language support**: official subtitles with auto-generated fallback.
 - **Video metadata**: extended info (title, channel, tags, thumbnails, etc.) and chapter markers.
 - **Pagination**: safe for large transcripts.
-- **Whisper fallback**: when subtitles are unavailable, transcribes video audio via Whisper (local self-hosted or OpenAI API).
+- **Whisper fallback**: when subtitles are unavailable, transcribes video audio via Whisper (local self-hosted or OpenAI API); configurable (see [Configuration](docs/configuration.md)).
+- **Optional Redis cache**: cache subtitles and metadata to reduce yt-dlp calls; configurable (see [Caching](docs/caching.md)).
 - **Docker-first**: ready for local + remote deployment.
 - **Production-friendly HTTP**: optional auth + allowlists (see `CHANGELOG.md`).
-- **Optional Redis cache**: cache subtitles and metadata to reduce yt-dlp calls (see [Caching](docs/caching.md)).
 - **Prometheus**: metrics for API and MCP, list of failed subtitle extractions (see [Monitoring](docs/monitoring.md)).
+
+## Self-configurable: Whisper & caching
+
+You can enable these features independently; both are **off by default**.
+
+- **Whisper fallback** — When native subtitles are unavailable, transcribe video audio via Whisper (local self-hosted or OpenAI API). Configure via `WHISPER_MODE`, `WHISPER_BASE_URL`, `WHISPER_API_KEY`, etc. See [Configuration](docs/configuration.md).
+- **Redis caching** — Cache subtitles and metadata to reduce yt-dlp calls. Configure via `CACHE_MODE=redis` and `CACHE_REDIS_URL`. See [Caching](docs/caching.md).
 
 ## Example usage (screenshot)
 
 Below is a real-world example of the same “summarize YouTube video” task without MCP vs with MCP:
 
-<picture>
-  <source srcset="./example-usage.webp" type="image/webp" />
-  <img src="./example-usage.webp" alt="Example usage: without MCP vs with MCP" />
-</picture>
+
 
 ## MCP quick start (Docker and self-hosted)
 
-For one-click connection without installing anything, use the [Smithery URL](#quick-start-no-install) above. The sections below are for Docker or your own server.
+For one-click connection without installing anything, use [Smithery](#how-to-connect) or [Glama](#how-to-connect) above. The sections below are for Docker or your own server.
 
 ### Docker Hub (stdio)
 
@@ -144,22 +131,27 @@ claude mcp add --transport http transcriptor http://<tailscale-host>:4200/mcp
 
 If you set `MCP_AUTH_TOKEN`, add `Authorization: Bearer <token>` in the client headers.
 
-For more MCP configuration examples, see [`docs/quick-start.mcp.md`](docs/quick-start.mcp.md).
+For more MCP configuration examples, see `[docs/quick-start.mcp.md](docs/quick-start.mcp.md)`.
 
 **n8n MCP Client (streamable HTTP):**
 
 - Use the MCP Server URL `http://<host>:4200/mcp` (streamable HTTP transport).
 - If n8n runs behind a reverse proxy that sets `X-Forwarded-For`, set `N8N_PROXY_HOPS`
-  to the number of proxy hops (commonly `1`) to avoid `ERR_ERL_UNEXPECTED_X_FORWARDED_FOR`.
+to the number of proxy hops (commonly `1`) to avoid `ERR_ERL_UNEXPECTED_X_FORWARDED_FOR`.
 
 ## MCP tools
 
-- `get_transcript`: cleaned plain text subtitles (URL only; first chunk, default size)
-- `get_raw_subtitles`: raw SRT/VTT (paginated)
-- `get_available_subtitles`: list official vs auto language codes
-- `get_video_info`: extended metadata (title, channel, tags, thumbnails, views, etc.)
-- `get_video_chapters`: chapter markers with start/end time and title
-- `search_videos`: search YouTube (query, optional limit, offset, uploadDateFilter, response_format)
+
+| Tool                       | Purpose                          |
+| -------------------------- | -------------------------------- |
+| `get_transcript`           | Cleaned plain text (first chunk) |
+| `get_raw_subtitles`        | Raw SRT/VTT, paginated           |
+| `get_available_subtitles`  | List official/auto languages     |
+| `get_video_info`           | Extended metadata                |
+| `get_video_chapters`       | Chapter markers                  |
+| `get_playlist_transcripts` | Batch transcripts from playlist  |
+| `search_videos`            | YouTube search                   |
+
 
 ### MCP tool reference
 
@@ -266,6 +258,23 @@ See `src/mcp-core.ts` and `src/youtube.ts` for the full JSON schema used by the 
 
 If the video has no chapters, `chapters` is an empty array; if yt-dlp cannot fetch chapter data at all, the tool returns an MCP error instead of structured chapters.
 
+#### `get_playlist_transcripts`
+
+**Purpose**: Fetch cleaned transcripts for multiple videos from a playlist in one call.
+
+**Input**:
+
+- `url` (string, required) – Playlist URL or watch URL with `list=` (e.g. `https://www.youtube.com/playlist?list=XXX`).
+- `type` – `"official"` or `"auto"`, optional.
+- `lang` – Subtitle language code, optional.
+- `format` – Subtitle format (`srt`, `vtt`, `ass`, `lrc`), optional.
+- `playlistItems` – yt-dlp `-I` spec (e.g. `1:5`, `1,3,7`, `-1`), optional.
+- `maxItems` – Max videos to process, optional.
+
+**Structured response**:
+
+- `results` – array of `{ videoId, text }` for each video in the playlist.
+
 #### `search_videos`
 
 **Purpose**: Search videos on YouTube via yt-dlp (ytsearch). Returns a list of videos with metadata.
@@ -295,19 +304,16 @@ The repository also ships an HTTP API (Fastify).
 #### Quick Docker usage
 
 - Build the image:
-
   ```bash
   docker build -t transcriptor-mcp-api -f Dockerfile --target api .
   ```
-
 - Run on the default port:
-
   ```bash
   docker run -p 3000:3000 transcriptor-mcp-api
   ```
 
 For a more complete REST quick start (including docker-compose and local Node.js),
-see [`docs/quick-start.rest.md`](docs/quick-start.rest.md).
+see `[docs/quick-start.rest.md](docs/quick-start.rest.md)`.
 
 #### Swagger / OpenAPI
 
@@ -324,14 +330,14 @@ If you change `PORT` / `HOST`, adjust the URL accordingly, e.g. `http://<HOST>:<
 If yt-dlp is blocked by age gate, sign-in, or region restrictions, you will likely need
 an authenticated `cookies.txt` file and the `COOKIES_FILE_PATH` environment variable.
 
-The root of this repository includes a sample [`cookies.example.txt`](cookies.example.txt)
+The root of this repository includes a sample `[cookies.example.txt](cookies.example.txt)`
 showing the expected Netscape cookies format. For a full guide on:
 
 - exporting real cookies
 - wiring them into Docker / docker-compose / local Node.js
 - and keeping them secure
 
-see [`docs/cookies.md`](docs/cookies.md).
+see `[docs/cookies.md](docs/cookies.md)`.
 
 #### Run in background
 
@@ -357,17 +363,19 @@ npm run test:e2e:api
 
 **Environment variables:**
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `SMOKE_IMAGE_API` | — | Full API image reference (overrides name/tag). |
-| `DOCKER_API_IMAGE` / `TAG` | `artsamsonov/transcriptor-mcp-api`, `latest` | API image name and tag. |
-| `SMOKE_API_URL` / `SMOKE_API_PORT` | `http://127.0.0.1:33000`, `33000` | API base URL and port. |
-| `SMOKE_VIDEO_URL` | `https://www.youtube.com/watch?v=dQw4w9WgXcQ` | Video used for `/subtitles` check. |
-| `SMOKE_SKIP_MCP` | — | Set to `1` (or `true`/`yes`) to skip MCP checks. |
-| `SMOKE_MCP_IMAGE` | — | Full MCP image reference (overrides name/tag). |
-| `DOCKER_MCP_IMAGE` / `TAG` | `artsamsonov/transcriptor-mcp`, `latest` | MCP image name and tag. |
-| `SMOKE_MCP_URL` / `SMOKE_MCP_PORT` | `http://127.0.0.1:4200`, `4200` | MCP base URL and port. |
-| `SMOKE_MCP_AUTH_TOKEN` | — | If set, passed to MCP container as `MCP_AUTH_TOKEN` and sent as Bearer in MCP requests. |
+
+| Variable                           | Default                                       | Description                                                                             |
+| ---------------------------------- | --------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `SMOKE_IMAGE_API`                  | —                                             | Full API image reference (overrides name/tag).                                          |
+| `DOCKER_API_IMAGE` / `TAG`         | `artsamsonov/transcriptor-mcp-api`, `latest`  | API image name and tag.                                                                 |
+| `SMOKE_API_URL` / `SMOKE_API_PORT` | `http://127.0.0.1:33000`, `33000`             | API base URL and port.                                                                  |
+| `SMOKE_VIDEO_URL`                  | `https://www.youtube.com/watch?v=dQw4w9WgXcQ` | Video used for `/subtitles` check.                                                      |
+| `SMOKE_SKIP_MCP`                   | —                                             | Set to `1` (or `true`/`yes`) to skip MCP checks.                                        |
+| `SMOKE_MCP_IMAGE`                  | —                                             | Full MCP image reference (overrides name/tag).                                          |
+| `DOCKER_MCP_IMAGE` / `TAG`         | `artsamsonov/transcriptor-mcp`, `latest`      | MCP image name and tag.                                                                 |
+| `SMOKE_MCP_URL` / `SMOKE_MCP_PORT` | `http://127.0.0.1:4200`, `4200`               | MCP base URL and port.                                                                  |
+| `SMOKE_MCP_AUTH_TOKEN`             | —                                             | If set, passed to MCP container as `MCP_AUTH_TOKEN` and sent as Bearer in MCP requests. |
+
 
 Example: skip MCP and use a custom video:
 
@@ -397,8 +405,7 @@ use the built-in Swagger UI at:
 http://localhost:3000/docs
 ```
 
-or see [`docs/quick-start.rest.md`](docs/quick-start.rest.md).
-
+or see `[docs/quick-start.rest.md](docs/quick-start.rest.md)`.
 
 ## MCP Server (stdio)
 
@@ -407,6 +414,7 @@ This project also ships an MCP server over stdio. It reuses the same `yt-dlp` ba
 ### Pagination
 
 Tools that return large text accept:
+
 - `response_limit` (default `50000`, min `1000`, max `200000`)
 - `next_cursor` (string offset from a previous response)
 
@@ -473,15 +481,15 @@ Cursor MCP config for Docker:
 
 ## How It Works
 
-1. The API receives a YouTube URL and parameters (subtitle type and language) from the client
+1. The API receives a video URL (YouTube or other supported platform) and parameters (subtitle type and language) from the client
 2. Extracts the video ID from the URL
 3. Uses `yt-dlp` to download subtitles with the specified parameters:
-   - Single `yt-dlp` command call with explicit type (`--write-subs` or `--write-auto-subs`) and language (`--sub-lang`)
+  - Single `yt-dlp` command call with explicit type (`--write-subs` or `--write-auto-subs`) and language (`--sub-lang`)
 4. Parses the subtitle file (SRT/VTT) and removes:
-   - Timestamps
-   - Subtitle numbers
-   - HTML tags
-   - Formatting
+  - Timestamps
+  - Subtitle numbers
+  - HTML tags
+  - Formatting
 5. Returns clean plain text (for `/subtitles`) or raw content (for `/subtitles/raw`)
 
 ## Development
@@ -494,7 +502,7 @@ Cursor MCP config for Docker:
 
 ### Versioning
 
-The app version is read from `package.json` at runtime ([`src/version.ts`](src/version.ts)). When cutting a release, update the `version` field in `package.json`, then create a git tag (e.g. `v0.4.7`). Changelog entries under `[Unreleased]` should be moved to the new version before tagging.
+The app version is read from `package.json` at runtime (`[src/version.ts](src/version.ts)`). When cutting a release, update the `version` field in `package.json`, then create a git tag (e.g. `v0.4.7`). Changelog entries under `[Unreleased]` should be moved to the new version before tagging.
 
 ### Scripts
 
@@ -549,10 +557,10 @@ The app version is read from `package.json` at runtime ([`src/version.ts`](src/v
 
 Do not commit or log sensitive values. Use environment variables or a secret manager (e.g. vault, cloud secrets) for:
 
-- **`WHISPER_API_KEY`** – required when using Whisper API; never log or expose in client responses.
-- **`CACHE_REDIS_URL`** – Redis connection string when `CACHE_MODE=redis`; may contain credentials.
-- **`MCP_AUTH_TOKEN`** – Bearer token for MCP HTTP; keep it secret.
-- **`COOKIES_FILE_PATH`** – path to cookies; ensure the file is not committed and has restricted permissions.
+- `**WHISPER_API_KEY`** – required when using Whisper API; never log or expose in client responses.
+- `**CACHE_REDIS_URL**` – Redis connection string when `CACHE_MODE=redis`; may contain credentials.
+- `**MCP_AUTH_TOKEN**` – Bearer token for MCP HTTP; keep it secret.
+- `**COOKIES_FILE_PATH**` – path to cookies; ensure the file is not committed and has restricted permissions.
 
 See [docs/cookies.md](docs/cookies.md) for safe handling of cookies.
 
@@ -581,3 +589,4 @@ See [LICENSE](LICENSE) file for details.
 - **Bug reports**: [GitHub Issues](https://github.com/samson-art/transcriptor-mcp/issues)
 - **Feature requests**: [GitHub Issues](https://github.com/samson-art/transcriptor-mcp/issues)
 - **Contact**: [GitHub Profile](https://github.com/samson-art)
+

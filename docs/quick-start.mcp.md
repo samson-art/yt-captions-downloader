@@ -2,7 +2,8 @@
 
 This project ships an MCP server that exposes tools for fetching video subtitles, metadata, and chapters.
 Supported platforms: YouTube, Twitter/X, Instagram, TikTok, Twitch, Vimeo, Facebook, Bilibili, VK, Dailymotion, Reddit (or YouTube video ID).
-You can run it either via Docker or directly with Node.js.
+
+**Connection options** (no install): [Smithery](https://smithery.ai/servers/samson-art/transcriptor-mcp) · [Glama](https://glama.ai/mcp/servers/samson-art/transcriptor-mcp) | **Self-hosted**: Docker · Node.js · HTTP/SSE (remote)
 
 ### Docker (recommended)
 
